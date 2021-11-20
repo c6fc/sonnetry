@@ -80,12 +80,12 @@ exports.Sonnet = class {
 
 		if (this.cleanBeforeRender) {
 			try {
-				let regex = /^\.terraform.*?$/
+				let regex = /.*?\.tf\.json$/
 				fs.readdirSync(this.renderPath)
-					.filter(f => !regex.test(f))
+					.filter(f => regex.test(f))
 					.map(f => fs.unlinkSync(`${this.renderPath}/${f}`));
 			} catch (e) {
-				console.log(`[!] Failed to remove files from renderPath. ${e}`);
+				console.log(`[!] Failed to remove *.tf.json files from renderPath. ${e}`);
 				process.exit(1);
 			}
 		}
