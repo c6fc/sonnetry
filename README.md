@@ -19,16 +19,16 @@ One of the greatest features of Sonnetry is the ability to consume the AWS SDK f
 local aws = import 'aws.libsonnet';  // Import the AWS SDK
 
 {
-	'demo.tf.json': {
-		output: {
-			whoami: {
-				value: aws.api(					// Prepare an API caller
-						aws.client('STS'),		// Using a client for the 'STS' service
-						'getCallerIdentity' 	// To call 'getCallerIdentity'
-					).Arn						// Then retrieve the 'Arn' property from the result.
-			}
-		}
-	},
+  'demo.tf.json': {
+    output: {
+      whoami: {
+        value: aws.api(			// Prepare an API caller
+            aws.client('STS'),	// Using a client for the 'STS' service
+            'getCallerIdentity' // To call 'getCallerIdentity'
+        ).Arn					// Then retrieve the 'Arn' property from the result.
+      }
+    }
+  }
 }
 ```
 
@@ -36,11 +36,11 @@ When evaluated, you'll see the following in `./render/demo.tf.json:`
 
 ```json
 {
-    "output": {
-        "whoami": {
-            "value": "arn:aws:iam::123456789012:user/you"
-        }
+  "output": {
+    "whoami": {
+      "value": "arn:aws:iam::123456789012:user/you"
     }
+  }
 }
 ````
 
@@ -108,8 +108,8 @@ If you need more control over your IaC, you can easily import and use the librar
 const { Sonnet } = require('../src/index.js');
 
 const sonnetry = new Sonnet({
-	renderPath: './render',		// The folder to write the configurations into
-	cleanBeforeRender: true		// Whether to delete the *.tf.json files from the renderPath before rendering
+  renderPath: './render',		// The folder to write the configurations into
+  cleanBeforeRender: true		// Whether to delete the *.tf.json files from the renderPath before rendering
 });
 
 const json = await sonnetry.render('terraform.jsonnet');	// Render the Jsonnet file, returning a raw object.
