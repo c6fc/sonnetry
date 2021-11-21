@@ -112,7 +112,7 @@ whoami_short = "arn:aws:iam::123456789012:user/you"
 If you need more control over your IaC, you can easily import and use the library in your own project.
 
 ```javascript
-const { Sonnet } = require('../src/index.js');
+const { Sonnet } = require('@c6fc/sonnetry');
 
 const sonnetry = new Sonnet({
   // The folder to write the configurations into
