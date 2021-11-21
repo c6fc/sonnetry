@@ -46,7 +46,12 @@ const sonnetry = new Sonnet({
 			yargs.positional('filename', {
 				describe: 'Jsonnet configuration file to consume'
 			})
-		}, (argv) => {
+		}, async (argv) => {
+
+			console.log(`[+] Evaluating ${argv.filename} into ./render/`);
+
+			await sonnetry.render(argv.filename)
+			sonnetry.write();
 			
 		})
 		.showHelpOnFail(false)
