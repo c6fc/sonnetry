@@ -42,6 +42,28 @@ const sonnetry = new Sonnet({
 			sonnetry.apply(argv.skipInit, argv.autoApprove);
 			
 		})
+		.command("destroy <filename>", "Destroys all resources in a given configuration", (yargs) => {
+			return yargs.positional('filename', {
+				describe: 'Jsonnet configuration file to consume'
+			}).option('auto-approve', {
+				alias: 'y',
+				type: 'boolean',
+				description: 'Skip the apply confirmation. Yolo.'
+			}).option('skip-init', {
+				alias: 's',
+				type: 'boolean',
+				description: 'Skip provider initialization.'
+			});
+		}, async (argv) => {
+
+			console.log(`[+] Evaluating ${argv.filename} into ./render/`);
+
+			await sonnetry.render(argv.filename)
+			sonnetry.write();
+
+			sonnetry.destroy(argv.skipInit, argv.autoApprove);
+			
+		})
 		.command("generate <filename>", "Generates files from a configuration", (yargs) => {
 			yargs.positional('filename', {
 				describe: 'Jsonnet configuration file to consume'

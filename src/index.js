@@ -100,6 +100,43 @@ exports.Sonnet = class {
 		return await setAwsCredentials();
 	}
 
+	destroy(skipInit = false, autoApprove = false) {
+		const terraformModulePath = require.resolve('@jahed/terraform/package.json').split('/node_modules/')[0];
+		const terraformExecPath = terraform.path.split('/node_modules/')[1];
+
+		const terraformBinPath = `${terraformModulePath}/node_modules/${terraformExecPath}`;
+
+		const args = [];
+
+		if (autoApprove) {
+			args.push('-auto-approve');
+		}
+
+		if (!skipInit) {
+			const init = spawnSync(terraformBinPath, ['init'], {
+				cwd: './render',
+				stdio: [process.stdin, process.stdout, process.stderr]
+			});
+
+			if (init.status != 0) {
+				console.log("[!] Terraform provider initialization failed.");
+				process.exit(1);
+			}
+		}
+
+		const destroy = spawnSync(terraformBinPath, ['destroy'].concat(args), {
+			cwd: './render',
+			stdio: [process.stdin, process.stdout, process.stderr]
+		});
+
+		if (destroy.status != 0) {
+			console.log("[!] Terraform destroy failed.");
+			process.exit(1);
+		}
+
+		console.log(`[+] Successfully destroyed`);
+	}
+
 	import(path) {
 		this.jsonnet = this.jsonnet.addJpath(path);
 

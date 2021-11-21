@@ -4,7 +4,7 @@ Sonnetry extends Jsonnet with the power of the AWS SDK for Node, and empowers it
 
 ## Installation
 
-Sonnetry relies on the `@jahed/terraform` package to provide terraform binaries, but requires you to specify the version by installing it manually. Use the version of Terraform you want as the version for `@jahed/terraform` during installation. To use Terraform v0.15.4 for example, use this command:
+Sonnetry relies on the `@jahed/terraform` package to provide terraform binaries, but allows you to specify the version by installing it manually. Use the version of Terraform you want as the version for `@jahed/terraform` during installation. To use Terraform v0.15.4 for example, use this command:
 
 ```sh
 $ npm install @c6fc/sonnetry @jahed/terraform@0.15.4      # Project-local
@@ -16,7 +16,7 @@ $ npm install -g @c6fc/sonnetry @jahed/terraform@0.15.4   # Global
 One of the greatest features of Sonnetry is the ability to consume the AWS SDK for JavaScript directly within Jsonnet. Consider the following Jsonnet file:
 
 ```jsonnet
-local aws = import 'aws.libsonnet';  // Import the AWS SDK
+local aws = import 'aws-sdk';  // Import the AWS SDK
 
 {
   'demo.tf.json': {
@@ -51,7 +51,7 @@ When evaluated, you'll see the following in `./render/demo.tf.json:`
 }
 ````
 
-**Wait, It called sts:getCallerIdentity, and injected the Identity ARN into the Terraform configuration? How is this possible?!**
+**Wait, It called sts:getCallerIdentity, then injected the Identity ARN into the Terraform configuration? How is this possible?!**
 
 Sonnetry accomplishes this through two very simple native functions added to Jsonnet:
 1. `aws.client( <service_code>, [{ ...params }])`
@@ -75,14 +75,14 @@ It's that easy!
 
 ## Using the command line utility
 
-Sonnetry bundles the `sonnetry` command line utility for ease of use. It can be called depending on how you chose to install it:
+Sonnetry bundles the `sonnetry` command line utility for ease of use. It can be run depending on how you chose to install it:
 
 ```sh
 $ npx sonnetry   # Project-local
 $ sonnetry       # Global
 ```
 
-Use the `generate` command to parse a Jsonnet file and render the results into `.render` in the local directory. This is great for validating the results before invoking terraform, or if you want to run terraform manually.
+Use the `sonnetry generate` command to parse a Jsonnet file and render the results into `.render` in the local directory. This is great for validating the results before invoking terraform, or if you want to run terraform manually.
 
 ```sh
 $ npx sonnetry apply terraform.jsonnet
@@ -90,7 +90,7 @@ $ npx sonnetry apply terraform.jsonnet
 ./render/demo.tf.json
 ```
 
-The `apply` command starts out the same as `generate`, with the added step of running terraform against the generated configurations in `./render/`.
+The `sonnetry apply` command starts out the same as `generate`, with the added step of running terraform against the generated configurations in `./render/`.
 
 ```sh
 $ npx sonnetry apply terraform.jsonnet
@@ -134,7 +134,7 @@ sonnetry.apply();
 
 ## Authenticating to AWS
 
-Authenticating to AWS is a common challenge when working with Terraform, and Sonnetry addresses this beautifully. Sonnetry will always authenticate identically to the AWS CLI, automatically determining the AWS credentials to be used in the following order:
+Authenticating to AWS is a common challenge when working with Terraform, and Sonnetry addresses this beautifully. Sonnetry will always use the same credentials that the AWS CLI would in a given context, automatically determining the AWS credentials to be used in the following order:
 1. `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN` environment variables
 2. EC2 instance profile
 3. `AWS_PROFILE` environment variable

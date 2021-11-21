@@ -12,13 +12,14 @@
 		std.manifestJsonEx(params, '')
 	),
 
+	assertIdentity(arn)::
+		assert aws.getCallerIdentity().Arn == arn : "Not authenticated as [ %s ]" % [arn];
+		arn,
+
 	getCallerIdentity():: aws.api(aws.client('STS'), 'getCallerIdentity'),
 
 	getRegionsList():: std.map(
-		function (x)
-			local log = std.native("log")("region");
-
-			x.RegionName,
+		function (x) x.RegionName,
 		aws.api(aws.client('EC2'), "describeRegions").Regions
 	),
 
@@ -27,7 +28,5 @@
 			function (x) x.ZoneName,
 			aws.api(aws.client('EC2', { region: region }), "describeAvailabilityZones").AvailabilityZones
 		) for region in aws.regions()
-	},
-
-
+	}
 }
