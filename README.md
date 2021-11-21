@@ -142,7 +142,7 @@ Authenticating to AWS is a common challenge when working with Terraform, and Son
 It also natively supports assumerole profile entries, and will prompt for MFA as appropriate.
 
 ```sh
-$ export AWS_PROFILE=assumeroe_profile_with_mfa
+$ export AWS_PROFILE=assumerole_profile_with_mfa
 $ npx sonnetry apply terraform.jsonnet
 Enter MFA code for arn:aws:iam::123456789012:mfa/you: ******
 [+] Successfully assumed role [arn:aws:iam::210987654321:role/Deployment]
