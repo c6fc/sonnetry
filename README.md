@@ -22,10 +22,17 @@ local aws = import 'aws.libsonnet';  // Import the AWS SDK
   'demo.tf.json': {
     output: {
       whoami: {
-        value: aws.api(			// Prepare an API caller
-            aws.client('STS'),	// Using a client for the 'STS' service
-            'getCallerIdentity' // To call 'getCallerIdentity'
-        ).Arn					// Then retrieve the 'Arn' property from the result.
+      	// Prepare an API caller
+        value: aws.api(		
+
+        	// Using a client for the 'STS' service	
+            aws.client('STS'),
+
+            // To call 'getCallerIdentity'
+            'getCallerIdentity'
+
+        // Then retrieve the 'Arn' property from the result.
+        ).Arn
       }
     }
   }
@@ -50,7 +57,7 @@ Sonnetry accomplishes this through two very simple native functions added to Jso
 1. `aws.client( <service_code>, [{ ...params }])`
 2. `aws.api( <aws_client>, <sdk_method>, [{ ...params }])`
 
-These perfectly translate to the service codes and methods exposed by the AWS SDK for JavaScript. For example, if we wanted to call ec2:DescribeVpcs in us-west-2, we could do this:
+These perfectly translate to the service codes and methods exposed by the AWS SDK for JavaScript. For example, if we wanted to call `ec2:DescribeVpcs` in `us-west-2`, we could do this:
 
 ```jsonnet
 local ec2client = aws.client('EC2', { region: "us-west-2" }),
