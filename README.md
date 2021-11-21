@@ -108,13 +108,21 @@ If you need more control over your IaC, you can easily import and use the librar
 const { Sonnet } = require('../src/index.js');
 
 const sonnetry = new Sonnet({
-  renderPath: './render',		// The folder to write the configurations into
-  cleanBeforeRender: true		// Whether to delete the *.tf.json files from the renderPath before rendering
+  // The folder to write the configurations into
+  renderPath: './render',
+
+  // Whether to delete the *.tf.json files from the renderPath before rendering		
+  cleanBeforeRender: true
 });
 
-const json = await sonnetry.render('terraform.jsonnet');	// Render the Jsonnet file, returning a raw object.
-sonnetry.write();											// Save the most recent render to the renderPath.
-sonnetry.apply();											// Run `terraform apply` on the rendered files.
+// Render the Jsonnet file, returning a raw object.
+const json = await sonnetry.render('terraform.jsonnet');
+
+// Save the most recent render to the renderPath.
+sonnetry.write();
+
+// Run `terraform apply` on the rendered files.
+sonnetry.apply();
 ````
 
 ## Authenticating to AWS
