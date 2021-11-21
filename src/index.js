@@ -206,6 +206,11 @@ async function setAwsCredentials() {
 					throw "Verification Error";
 				}
 
+				process.env.AWS_PROFILE = '';
+				process.env.AWS_ACCESS_KEY_ID = aws.config.credentials.accessKeyId;
+				process.env.AWS_SECRET_ACCESS_KEY = aws.config.credentials.secretAccessKey;
+				process.env.AWS_SESSION_TOKEN = aws.config.credentials.sessionToken ?? '';
+
 				console.log(`[+] Successfully resumed session as ${cache.profile}; Valid for ${((cache.expireTime - Date.now()) / 60000).toFixed(0)} minutes.`);
 
 				return true;
@@ -261,6 +266,7 @@ async function setAwsCredentials() {
 				profile
 			}), { mode: '600' });
 
+			process.env.AWS_PROFILE = '';
 			process.env.AWS_ACCESS_KEY_ID = aws.config.credentials.accessKeyId;
 			process.env.AWS_SECRET_ACCESS_KEY = aws.config.credentials.secretAccessKey;
 			process.env.AWS_SESSION_TOKEN = aws.config.credentials.sessionToken ?? '';
