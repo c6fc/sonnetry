@@ -284,11 +284,19 @@ function getMFAToken(mfaSerial) {
 		rl.question(`Enter MFA code for ${mfaSerial}: `, function(token) {
 			rl.close();
 
+			console.log("");
+
 			if (!token) {
 				return getMFAToken(mfaSerial);
 			}
 
 			return success(token);
 		});
+
+		rl._writeToOutput = function(char) {
+			if (char.charCodeAt(0) != 13) {
+				rl.output.write('*');
+			}
+		}
 	});
 }
