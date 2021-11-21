@@ -135,9 +135,9 @@ sonnetry.apply();
 ## Authenticating to AWS
 
 Authenticating to AWS is a common challenge when working with Terraform, and Sonnetry addresses this beautifully. Sonnetry will always authenticate identically to the AWS CLI, automatically determining the AWS credentials to be used in the following order:
-1. AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_SESSION_TOKEN environment variables
+1. `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN` environment variables
 2. EC2 instance profile
-3. AWS_PROFILE environment variable
+3. `AWS_PROFILE` environment variable
 
 It also natively supports assumerole profile entries, and will prompt for MFA as appropriate.
 
