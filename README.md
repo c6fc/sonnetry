@@ -4,7 +4,7 @@ Sonnetry extends Jsonnet with the power of the AWS SDK for Node, and empowers it
 
 ## Installation
 
-Sonnetry relies on @jahed/terraform package to provide terraform binaries, but requires you to specify the version by installing it manually. Use the version of Terraform you want as the version for @jahed/terraform during installation. To use Terraform v0.15.4, use this command:
+Sonnetry relies on the `@jahed/terraform` package to provide terraform binaries, but requires you to specify the version by installing it manually. Use the version of Terraform you want as the version for `@jahed/terraform` during installation. To use Terraform v0.15.4 for example, use this command:
 
 ```sh
 $ npm install @c6fc/sonnetry @jahed/terraform@0.15.4      # Project-local
@@ -25,7 +25,7 @@ local aws = import 'aws.libsonnet';  // Import the AWS SDK
       	// Prepare an API caller
         value: aws.api(		
 
-        	// Using a client for the 'STS' service	
+            // Using a client for the 'STS' service	
             aws.client('STS'),
 
             // To call 'getCallerIdentity'
@@ -75,7 +75,7 @@ It's that easy!
 
 ## Using the command line utility
 
-Sonnetry bundles the `sonnetry` command line utility for ease of use. It can be accessed one of two ways:
+Sonnetry bundles the `sonnetry` command line utility for ease of use. It can be called depending on how you chose to install it:
 
 ```sh
 $ npx sonnetry   # Project-local
