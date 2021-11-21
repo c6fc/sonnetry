@@ -1,15 +1,29 @@
 'use strict';
 
+/*
+	Check if @jahed/terraform is present.
+	It's done this way to allow arbitrary
+	versions without causing dependency
+	issues.
+*/
+
+try {
+	require.resolve('@jahed/terraform/package.json');
+} catch (e) {
+	console.log(`[!] Missing package @jahed/terraform. Use NPM to install this package using the Terraform version you require.`);
+	process.exit(1);
+}
+
+const terraform = require('@jahed/terraform');
+
 const fs = require("fs");
 const os = require("os");
 const aws = require("aws-sdk");
 const ini = require("ini");
 const path = require("path");
 const readline = require("readline");
-const terraform = require("@jahed/terraform");
+const { spawnSync } = require('child_process');
 const { Jsonnet } = require("@hanazuki/node-jsonnet");
-
-// console.log(terraform);
 
 aws.config.update({
 	region: "us-east-1"
@@ -43,6 +57,43 @@ exports.Sonnet = class {
 			}, "clientObj", "method", "params");
 
 		return this;
+	}
+
+	apply(skipInit = false, autoApprove = false) {
+		const terraformModulePath = require.resolve('@jahed/terraform/package.json').split('/node_modules/')[0];
+		const terraformExecPath = terraform.path.split('/node_modules/')[1];
+
+		const terraformBinPath = `${terraformModulePath}/node_modules/${terraformExecPath}`;
+
+		const args = [];
+
+		if (autoApprove) {
+			args.push('-auto-approve');
+		}
+
+		if (!skipInit) {
+			const init = spawnSync(terraformBinPath, ['init'], {
+				cwd: './render',
+				stdio: [process.stdin, process.stdout, process.stderr]
+			});
+
+			if (init.status != 0) {
+				console.log("[!] Terraform provider initialization failed.");
+				process.exit(1);
+			}
+		}
+
+		const apply = spawnSync(terraformBinPath, ['apply'].concat(args), {
+			cwd: './render',
+			stdio: [process.stdin, process.stdout, process.stderr]
+		});
+
+		if (apply.status != 0) {
+			console.log("[!] Terraform apply failed.");
+			process.exit(1);
+		}
+
+		console.log(`[+] Successfully applied`)
 	}
 
 	async auth() {

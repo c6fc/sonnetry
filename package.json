@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "@hanazuki/node-jsonnet": "^0.4.2",
-    "@jahed/terraform": "^0.15.5",
+    "@jahed/terraform": "^0.15.4",
     "aws-sdk": "^2.1032.0",
     "ini": "^2.0.0",
     "yargs": "^17.2.1"
@@ -14,7 +14,7 @@
     "lib": "lib"
   },
   "bin": {
-    "sonnetry": "./bin/sonnetry.js"
+    "sonnetry": "bin/sonnetry.js"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

@@ -2,9 +2,7 @@
 
 const fs = require('fs');
 const yargs = require('yargs')
-const terraform = require('@jahed/terraform');
 const { Sonnet } = require('../src/index.js');
-const { spawnSync } = require('child_process')
 
 const sonnetry = new Sonnet({
 	renderPath: './render',
@@ -25,7 +23,7 @@ const sonnetry = new Sonnet({
 		.command("apply <filename>", "Generates and applies a configuration", (yargs) => {
 			return yargs.positional('filename', {
 				describe: 'Jsonnet configuration file to consume'
-			}).option('auto-apply', {
+			}).option('auto-approve', {
 				alias: 'y',
 				type: 'boolean',
 				description: 'Skip the apply confirmation. Yolo.'
@@ -41,40 +39,8 @@ const sonnetry = new Sonnet({
 			await sonnetry.render(argv.filename)
 			sonnetry.write();
 
-			const terraformModulePath = require.resolve('@jahed/terraform/package.json').split('/node_modules/')[0];
-			const terraformExecPath = terraform.path.split('/node_modules/')[1];
-
-			const terraformBinPath = `${terraformModulePath}/node_modules/${terraformExecPath}`;
-
-			const args = [];
-
-			if (argv.autoApply) {
-				args.push('-auto-approve');
-			}
-
-			if (!argv.skipInit) {
-				const init = spawnSync(terraformBinPath, ['init'], {
-					cwd: './render',
-					stdio: [process.stdin, process.stdout, process.stderr]
-				});
-
-				if (init.status != 0) {
-					console.log("[!] Terraform provider initialization failed.");
-					process.exit(1);
-				}
-			}
-
-			const apply = spawnSync(terraformBinPath, ['apply'].concat(args), {
-				cwd: './render',
-				stdio: [process.stdin, process.stdout, process.stderr]
-			});
-
-			if (apply.status != 0) {
-				console.log("[!] Terraform apply failed.");
-				process.exit(1);
-			}
-
-			console.log(`[+] Successfully applied`)
+			sonnetry.apply(argv.skipInit, argv.autoApprove);
+			
 		})
 		.command("generate <filename>", "Generates files from a configuration", (yargs) => {
 			yargs.positional('filename', {
