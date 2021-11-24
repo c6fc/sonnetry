@@ -72,6 +72,46 @@ vpcs: aws.api(aws.client('EC2', { region: "us-west-2" }), 'describeVpcs')
 
 It's that easy!
 
+## Project-based state management in S3
+
+Terraform's remote state is critical for long-lived infrastructure or circumstances where multiple individuals are contributing to the architecture. Sonnetry makes it easy to bootstrap a project into a new remote state, and for that state to be used consistently across accounts or security contexts.
+
+This is accomplished through Sonnetry's 'bootstrap()' function:
+```jsonnet
+local aws = import 'aws-sdk';        // Import the AWS SDK
+local sonnetry = import 'sonnetry';  // Import sonnetry
+
+// Create the s3 backend, and return
+// a terraform s3 backend configuration
+local backend = sonnetry.backend('my-persistent-project');
+
+{
+  // Save the backend in the project
+  'backend.tf.json': backend
+
+  // Access a property of the backend configuration
+  backendBucket:: backend.terraform.backend.s3.bucket
+}
+```
+
+If the account doesn't have a Sonnetry state bucket, it will be created when the file is evaluated. The bucket is created with the format of `sonnetry-<random_characters>-<unix_timestamp>`, and is automatically configured to block public access and enable versioning.
+
+Applying the configuration will render the following in 'backend.tf.json':
+```json
+{
+    "terraform": {
+        "backend": {
+            "s3": {
+                "bucket": "sonnetry-oszghfzdrx-1637718050",
+                "key": "sonnetry/my-persistent-project/terraform.tfstate",
+                "region": "us-east-1"
+            }
+        }
+    }
+}
+```
+
+Sonnetry will always use the same bucket for all projects within an account. As a result, it's important to ensure that different projects use distinct project names.
 
 ## Using the command line utility
 

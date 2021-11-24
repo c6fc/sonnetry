@@ -275,6 +275,15 @@ exports.Sonnet = class {
 		console.log(`[+] Successfully destroyed`);
 	}
 
+	export(name, value) {
+		if (typeof value !== "string") {
+			value = JSON.stringify(value);
+		}
+
+		this.jsonnet = this.jsonnet.extCode(name, value);
+		return this;
+	}
+
 	import(path) {
 		this.jsonnet = this.jsonnet.addJpath(path);
 
@@ -298,7 +307,7 @@ exports.Sonnet = class {
 
 	async render(file) {
 		if (!fs.existsSync(file)) {
-			throw new Error("Sonnetry Error: renderFile does not exist.");
+			throw new Error(`Sonnetry Error: ${file} does not exist.`);
 		}
 
 		this.renderPath = (this.renderPath.split("").slice(-1)[0] == "/") ?
@@ -308,6 +317,14 @@ exports.Sonnet = class {
 		this.lastRender = JSON.parse(await this.jsonnet.evaluateFile(file));
 
 		return this.lastRender;
+	}
+
+	toString() {
+		if (this?.lastRender) {
+			return this.lastRender
+		}
+
+		return null;
 	}
 
 	write(files = this.lastRender) {
