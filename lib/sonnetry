@@ -1,0 +1,5 @@
+{
+	local sonnetry = self,
+
+	bootstrap(project):: std.native("bootstrap")(project)
+}

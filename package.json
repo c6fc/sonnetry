@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "@hanazuki/node-jsonnet": "^0.4.2",
+    "@jahed/terraform": "^0.15.4",
     "aws-sdk": "^2.1032.0",
     "ini": "^2.0.0",
     "yargs": "^17.2.1"

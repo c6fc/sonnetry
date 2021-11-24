@@ -65,7 +65,7 @@ const sonnetry = new Sonnet({
 			
 		})
 		.command("generate <filename>", "Generates files from a configuration", (yargs) => {
-			yargs.positional('filename', {
+			return yargs.positional('filename', {
 				describe: 'Jsonnet configuration file to consume'
 			})
 		}, async (argv) => {
@@ -74,6 +74,17 @@ const sonnetry = new Sonnet({
 
 			await sonnetry.render(argv.filename)
 			sonnetry.write();
+			
+		})
+		.command("init [args...]", "Manually initializes Terraform", (yargs) => {
+			return yargs.positional('args', {
+				describe: 'other arguments to pass for initialization'
+			})
+		}, async (argv) => {
+
+			console.log(`[+] Initializing Terraform in ./render/ with [${argv.args.join(" ")}]`);
+
+			await sonnetry.init(argv.args)
 			
 		})
 		.showHelpOnFail(false)
