@@ -70,209 +70,202 @@ exports.Sonnet = class {
 	}
 
 	apply(skipInit = false, autoApprove = false) {
-		
-		const args = [];
+		try {
+			const args = [];
 
-		if (autoApprove) {
-			args.push('-auto-approve');
-		}
-
-		if (!skipInit) {
-			const init = spawnSync(this.terraformBinPath, ['init'], {
-				cwd: './render',
-				stdio: [process.stdin, process.stdout, process.stderr]
-			});
-
-			if (init.status != 0) {
-				console.log(`[!] Terraform provider initialization failed with status code ${init.status}`);
-				process.exit(init.status);
-			}
-		}
-
-		let apply = spawnSync(this.terraformBinPath, ['apply'].concat(args), {
-			cwd: './render',
-			stdio: [process.stdin, process.stdout, process.stderr]
-		});
-
-		if (apply.status != 0) {
-			if (skipInit) {
-				console.log(`[!] Terraform apply failed with status code ${apply.status}`);
-				process.exit(apply.status);
+			if (autoApprove) {
+				args.push('-auto-approve');
 			}
 
-			console.log('[*] Attempting automatic initialization.');
+			if (!skipInit) {
+				const init = spawnSync(this.terraformBinPath, ['init'], {
+					cwd: './render',
+					stdio: [process.stdin, process.stdout, process.stderr]
+				});
 
-			this.init();
+				if (init.status != 0) {
+					console.log(`[!] Terraform provider initialization failed with status code ${init.status}`);
+					process.exit(init.status);
+				}
+			}
 
-			apply = spawnSync(this.terraformBinPath, ['apply'].concat(args), {
+			let apply = spawnSync(this.terraformBinPath, ['apply'].concat(args), {
 				cwd: './render',
 				stdio: [process.stdin, process.stdout, process.stderr]
 			});
 
 			if (apply.status != 0) {
-				console.log(`[!] Terraform apply failed with status code ${apply.status}`);
-				process.exit(apply.status);
-			}
-		}
+				if (skipInit) {
+					console.log(`[!] Terraform apply failed with status code ${apply.status}`);
+					process.exit(apply.status);
+				}
 
-		console.log(`[+] Successfully applied`);
+				console.log('[*] Attempting automatic initialization.');
+
+				this.init();
+
+				apply = spawnSync(this.terraformBinPath, ['apply'].concat(args), {
+					cwd: './render',
+					stdio: [process.stdin, process.stdout, process.stderr]
+				});
+
+				if (apply.status != 0) {
+					console.log(`[!] Terraform apply failed with status code ${apply.status}`);
+					process.exit(apply.status);
+				}
+			}
+
+			console.log(`[+] Successfully applied`);
+		} catch (e) {
+			console.trace(e);
+		}
 	}
 
 	async auth() {
-		return await setAwsCredentials();
+		try {
+			return await setAwsCredentials();
+		} catch (e) {
+			console.trace(e);
+		}
 	}
 
 	async getBootstrapBucket() {
-		const rg = new aws.ResourceGroups();
+		try {
+			const rg = new aws.ResourceGroups();
 
-		const resources = await rg.searchResources({
-			ResourceQuery: {
-				Type: "TAG_FILTERS_1_0",
-				Query: JSON.stringify({
-					ResourceTypeFilters: ["AWS::S3::Bucket"],
-					TagFilters: [{
-						Key: "sonnetry-backend",
-						Values: ["true"]
-					}]
-				})
+			const resources = await rg.searchResources({
+				ResourceQuery: {
+					Type: "TAG_FILTERS_1_0",
+					Query: JSON.stringify({
+						ResourceTypeFilters: ["AWS::S3::Bucket"],
+						TagFilters: [{
+							Key: "sonnetry-backend",
+							Values: ["true"]
+						}]
+					})
+				}
+			}).promise();
+
+			if (resources.ResourceIdentifiers.length == 1) {
+				return resources.ResourceIdentifiers[0].ResourceArn;
 			}
-		}).promise();
 
-		if (resources.ResourceIdentifiers.length == 1) {
-			return resources.ResourceIdentifiers[0].ResourceArn;
-		}
-
-		if (resources.ResourceIdentifiers.length > 1) {
-			console.log("[!] More than one bootstrap bucket exists in this account. Fix this before continuing.");
-			process.exit(1);
-		}
-
-		return false;
-	}
-
-	async bootstrap(project) {
-
-		const s3 = new aws.S3();
-		const self = this;
-		
-		let bucketName;
-		let bootstrapBucket = await self.getBootstrapBucket();
-
-		if (!bootstrapBucket) {
-			bucketName = `sonnetry-${Math.random().toString(36).replace(/[^a-z]+/g, '')}-${Math.round(Date.now() / 1000)}`;
-
-			try {
-				await s3.createBucket({
-					Bucket: bucketName
-				}).promise();
-			} catch (e) {
-				console.log(`Sonnetry error: Unable to create bucket: ${e}`);
+			if (resources.ResourceIdentifiers.length > 1) {
+				console.log("[!] More than one bootstrap bucket exists in this account. Fix this before continuing.");
 				process.exit(1);
 			}
 
-			bootstrapBucket = `arn:aws:s3:::${bucketName}`;
-		} else {
-			bucketName = bootstrapBucket.substr(13);
+			return false;
+		} catch (e) {
+			console.trace(e);
 		}
+	}
 
-		const [tagging, versioning, blocking] = await Promise.all([
-			s3.getBucketTagging({
-				Bucket: bucketName
-			}).promise(),
-			s3.getBucketVersioning({
-				Bucket: bucketName
-			}).promise(),
-			s3.getPublicAccessBlock({
-				Bucket: bucketName
-			}).promise(),
-		]);
+	async bootstrap(project) {
+		try {
+			const s3 = new aws.S3();
+			const self = this;
+			
+			let bucketName;
+			let bootstrapBucket = await self.getBootstrapBucket();
 
-		const isTagged = tagging.TagSet
-			.filter(e => e.Key == 'sonnetry-backend' && e.Value == 'true')
-			.length == 1;
+			if (!bootstrapBucket) {
+				bucketName = `sonnetry-${Math.random().toString(36).replace(/[^a-z]+/g, '')}-${Math.round(Date.now() / 1000)}`;
 
-		const isVersioned = versioning.Status == "Enabled";
+				try {
+					await s3.createBucket({
+						Bucket: bucketName
+					}).promise();
 
-		const isBlocked = Object.entries(blocking.PublicAccessBlockConfiguration)
-			.filter(e => e.value == false)
-			.length == 0;
+					await s3.putBucketTagging({
+						Bucket: bucketName,
+						Tagging: {
+							TagSet: [{
+								Key: "sonnetry-backend",
+								Value: "true"
+							}]
+						}
+					}).promise();
 
-		if (!isTagged) {
-			await s3.putBucketTagging({
-				Bucket: bucketName,
-				Tagging: {
-					TagSet: [{
-						Key: "sonnetry-backend",
-						Value: "true"
-					}]
+					await s3.putBucketVersioning({
+						Bucket: bucketName,
+						VersioningConfiguration: {
+							MFADelete: "Disabled",
+							Status: "Enabled"
+						}
+					}).promise();
+
+					await s3.putPublicAccessBlock({
+						Bucket: bucketName,
+						PublicAccessBlockConfiguration: {
+							BlockPublicAcls: true,
+							BlockPublicPolicy: true,
+							IgnorePublicAcls: true,
+							RestrictPublicBuckets: true
+						}
+					}).promise();
+				} catch (e) {
+					console.log(`Sonnetry error: Unable to create bucket: ${e}`);
+					process.exit(1);
 				}
+
+				console.log(`[+] Created bootstrap bucket ${bucketName}`);
+
+				bootstrapBucket = `arn:aws:s3:::${bucketName}`;
+			} else {
+				bucketName = bootstrapBucket.substr(13);
+				console.log(`[+] Using bootstrap bucket ${bucketName}`);
+			}
+
+			let bootstrapLocation = await s3.getBucketLocation({
+				Bucket: bucketName
 			}).promise();
-		}
 
-		if (!isVersioned) {
-			await s3.putBucketVersioning({
-				Bucket: bucketName,
-				VersioningConfiguration: {
-					MFADelete: "Disabled",
-					Status: "Enabled"
-				}
-			}).promise();
-		}
+			bootstrapLocation = (bootstrapLocation.LocationConstraint == '') ? "us-east-1" : bootstrapLocation.LocationConstraint;
 
-		if (!isBlocked) {
-			await s3.putPublicAccessBlock({
-				Bucket: bucketName,
-				PublicAccessBlockConfiguration: {
-					BlockPublicAcls: true,
-					BlockPublicPolicy: true,
-					IgnorePublicAcls: true,
-					RestrictPublicBuckets: true
-				}
-			}).promise();
-		}
-
-		let bootstrapLocation = await s3.getBucketLocation({
-			Bucket: bucketName
-		}).promise();
-
-		bootstrapLocation = (bootstrapLocation.LocationConstraint == '') ? "us-east-1" : bootstrapLocation.LocationConstraint;
-
-		return {
-			terraform: {
-				backend: {
-					s3: {
-						bucket: bucketName,
-						key: `sonnetry/${project}/terraform.tfstate`,
-						region: bootstrapLocation
+			return {
+				terraform: {
+					backend: {
+						s3: {
+							bucket: bucketName,
+							key: `sonnetry/${project}/terraform.tfstate`,
+							region: bootstrapLocation
+						}
 					}
 				}
 			}
+		} catch (e) {
+			console.trace(e);
 		}
 	}
 
 	destroy(skipInit = false, autoApprove = false) {
 
-		const args = [];
+		try {
+			const args = [];
 
-		if (autoApprove) {
-			args.push('-auto-approve');
+			if (autoApprove) {
+				args.push('-auto-approve');
+			}
+
+			if (!skipInit) {
+				this.init();
+			}
+
+			const destroy = spawnSync(this.terraformBinPath, ['destroy'].concat(args), {
+				cwd: './render',
+				stdio: [process.stdin, process.stdout, process.stderr]
+			});
+
+			if (destroy.status != 0) {
+				console.log(`[!] Terraform destroy failed with status code ${init.status}`);
+				process.exit(destroy.status);
+			}
+
+			console.log(`[+] Successfully destroyed`);
+		} catch (e) {
+			console.trace(e);
 		}
-
-		if (!skipInit) {
-			this.init();
-		}
-
-		const destroy = spawnSync(this.terraformBinPath, ['destroy'].concat(args), {
-			cwd: './render',
-			stdio: [process.stdin, process.stdout, process.stderr]
-		});
-
-		if (destroy.status != 0) {
-			console.log(`[!] Terraform destroy failed with status code ${init.status}`);
-			process.exit(destroy.status);
-		}
-
-		console.log(`[+] Successfully destroyed`);
 	}
 
 	export(name, value) {
@@ -292,31 +285,39 @@ exports.Sonnet = class {
 
 	init(args = []) {
 
-		const init = spawnSync(this.terraformBinPath, ['init'].concat(args), {
-			cwd: './render',
-			stdio: [process.stdin, process.stdout, process.stderr]
-		});
+		try {
+			const init = spawnSync(this.terraformBinPath, ['init'].concat(args), {
+				cwd: './render',
+				stdio: [process.stdin, process.stdout, process.stderr]
+			});
 
-		if (init.status != 0) {
-			console.log(`[!] Terraform init failed with status code ${init.status}`);
-			process.exit(init.status);
+			if (init.status != 0) {
+				console.log(`[!] Terraform init failed with status code ${init.status}`);
+				process.exit(init.status);
+			}
+
+			console.log(`[+] Successfully initialized`);
+		} catch (e) {
+			console.trace(e);
 		}
-
-		console.log(`[+] Successfully initialized`);
 	}
 
 	async render(file) {
-		if (!fs.existsSync(file)) {
-			throw new Error(`Sonnetry Error: ${file} does not exist.`);
+		try {
+			if (!fs.existsSync(file)) {
+				throw new Error(`Sonnetry Error: ${file} does not exist.`);
+			}
+
+			this.renderPath = (this.renderPath.split("").slice(-1)[0] == "/") ?
+				this.renderPath.split("").slice(0, -1).join("") :
+				this.renderPath;
+
+			this.lastRender = JSON.parse(await this.jsonnet.evaluateFile(file));
+
+			return this.lastRender;
+		} catch (e) {
+			console.trace(e);
 		}
-
-		this.renderPath = (this.renderPath.split("").slice(-1)[0] == "/") ?
-			this.renderPath.split("").slice(0, -1).join("") :
-			this.renderPath;
-
-		this.lastRender = JSON.parse(await this.jsonnet.evaluateFile(file));
-
-		return this.lastRender;
 	}
 
 	toString() {
