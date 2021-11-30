@@ -27,6 +27,6 @@
 		[region]: std.map(
 			function (x) x.ZoneName,
 			aws.api(aws.client('EC2', { region: region }), "describeAvailabilityZones").AvailabilityZones
-		) for region in aws.regions()
+		) for region in aws.getRegionsList()
 	}
 }
