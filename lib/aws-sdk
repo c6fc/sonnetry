@@ -1,3 +1,5 @@
+local sonnetry = import 'sonnetry';
+
 {
 	local aws = self,
 
@@ -6,27 +8,48 @@
 		params: params
 	},
 
-	api(clientObj, method, params=""):: std.native("aws")(
+	api(clientObj, method, params=""):: std.native('aws')(
 		std.manifestJsonEx(clientObj, ''),
 		method,
 		std.manifestJsonEx(params, '')
+	),
+
+	call(name, method, params=""):: aws.api(
+		aws.client(name),
+		method,
+		params
 	),
 
 	assertIdentity(arn)::
 		assert aws.getCallerIdentity().Arn == arn : "Not authenticated as [ %s ]" % [arn];
 		arn,
 
-	getCallerIdentity():: aws.api(aws.client('STS'), 'getCallerIdentity'),
+	getCallerIdentity():: aws.call('STS', 'getCallerIdentity'),
 
 	getRegionsList():: std.map(
 		function (x) x.RegionName,
-		aws.api(aws.client('EC2'), "describeRegions").Regions
+		aws.call('EC2', 'describeRegions').Regions
 	),
 
 	getAvailabilityZones():: {
 		[region]: std.map(
 			function (x) x.ZoneName,
-			aws.api(aws.client('EC2', { region: region }), "describeAvailabilityZones").AvailabilityZones
+			aws.api(aws.client('EC2', { region: region }), 'describeAvailabilityZones').AvailabilityZones
 		) for region in aws.getRegionsList()
-	}
+	},
+
+	providerAliases()::
+		local def = sonnetry.envvar('AWS_DEFAULT_REGION');
+		local default = if def != false then def else 'us-east-1';
+
+		[{
+			aws: {
+				alias: region,
+				region: region
+			}
+		} for region in aws.getRegionsList()] + [{
+			aws: {
+				region: default
+			}
+		}]
 }

@@ -70,7 +70,14 @@ or, as a one-liner:
 vpcs: aws.api(aws.client('EC2', { region: "us-west-2" }), 'describeVpcs')
 ```
 
-It's that easy!
+If you don't need to specify any parameters to the API client, you can also just use `aws.call()`:
+
+```jsonnet
+identity: aws.call('STS', 'getCallerIdentity')
+```
+
+It's that easy! If you want to see more examples, check out the [sonnetry-examples repo on github](https://github.com/c6fc/sonnetry-examples)!
+
 
 ## Project-based state management in S3
 

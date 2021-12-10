@@ -21,6 +21,7 @@ const os = require("os");
 const aws = require("aws-sdk");
 const ini = require("ini");
 const path = require("path");
+const crypto = require('crypto');
 const readline = require("readline");
 const { spawnSync } = require('child_process');
 const { Jsonnet } = require("@hanazuki/node-jsonnet");
@@ -32,10 +33,11 @@ aws.config.update({
 exports.Sonnet = class {
 	renderPath; cleanBeforeRender; jsonnet; lastRender; terraformBinPath;
 	constructor(options) {
-		const self = this;
 
 		options.renderPath ??= "./render";
 		options.cleanBeforeRender ??= false;
+
+		this.cache = {};
 
 		try {
 			if (!fs.existsSync(options.renderPath)) {
@@ -50,23 +52,76 @@ exports.Sonnet = class {
 
 		this.terraformBinPath = `${terraformModulePath}/node_modules/${terraformExecPath}`;
 
-		self.renderPath = options.renderPath;
-		self.cleanBeforeRender = options.cleanBeforeRender;
+		this.renderPath = options.renderPath;
+		this.cleanBeforeRender = options.cleanBeforeRender;
 
-		self.jsonnet = new Jsonnet()
-			.addJpath(path.join(__dirname, '../lib'))
-			.nativeCallback("aws", (clientObj, method, params) => {
+		this.jsonnet = new Jsonnet()
+			.addJpath(path.join(__dirname, '../lib'));
+
+			/*.nativeCallback("aws", (clientObj, method, params) => {
 				clientObj = JSON.parse(clientObj);
+
+				let key = this._cacheKey(['aws', clientObj, method, params]);
+				if (!!this.cache?.[key]) {
+					return this.cache[key];
+				}
 
 				const client = new aws[clientObj.service](clientObj.params);
 
-				return client[method](JSON.parse(params)).promise();
+				this.cache[key] = client[method](JSON.parse(params)).promise();
+
+				return this.cache[key];
 			}, "clientObj", "method", "params")
 			.nativeCallback("bootstrap", (project) => {
-				return self.bootstrap(project);
-			}, "project");
+				let key = this._cacheKey(['bootstrap', project]);
+				if (!!this.cache?.[key]) {
+					return this.cache[key];
+				}
 
-		return self;
+				this.cache[key] = this.bootstrap(project);
+
+				return this.cache[key];
+			}, "project")
+			.nativeCallback("envvar", (name) => {
+				return process.env?.[name] ?? false;
+			}, "name")
+			;*/
+
+		this.addFunction("aws", (clientObj, method, params) => {
+			clientObj = JSON.parse(clientObj);
+
+			const client = new aws[clientObj.service](clientObj.params);
+
+			return client[method](JSON.parse(params)).promise();
+		}, "clientObj", "method", "params");
+
+		this.addFunction("bootstrap", (project) => {
+			return this.bootstrap(project);
+		}, "project");
+
+		this.addFunction("envvar", (name) => {
+			return process.env?.[name] ?? false;
+		}, "name")
+
+		return this;
+	}
+
+	_cacheKey(...args) {
+		return crypto.createHash('sha256').update(JSON.stringify(args)).digest('hex');
+	}
+
+	addFunction(name, fn, ...parameters) {
+		this.jsonnet.nativeCallback(name, (...args) => {
+
+			let key = this._cacheKey(name, args);
+			if (!!this.cache?.[key]) {
+				return this.cache[key];
+			}
+
+			this.cache[key] = fn(...args);
+
+			return this.cache[key];
+		}, ...parameters);
 	}
 
 	apply(skipInit = false, autoApprove = false) {
@@ -95,24 +150,8 @@ exports.Sonnet = class {
 			});
 
 			if (apply.status != 0) {
-				if (skipInit) {
-					console.log(`[!] Terraform apply failed with status code ${apply.status}`);
-					process.exit(apply.status);
-				}
-
-				console.log('[*] Attempting automatic initialization.');
-
-				this.init();
-
-				apply = spawnSync(this.terraformBinPath, ['apply'].concat(args), {
-					cwd: './render',
-					stdio: [process.stdin, process.stdout, process.stderr]
-				});
-
-				if (apply.status != 0) {
-					console.log(`[!] Terraform apply failed with status code ${apply.status}`);
-					process.exit(apply.status);
-				}
+				console.log(`[!] Terraform apply failed with status code ${apply.status}`);
+				process.exit(apply.status);
 			}
 
 			console.log(`[+] Successfully applied`);
@@ -121,9 +160,9 @@ exports.Sonnet = class {
 		}
 	}
 
-	async auth() {
+	auth() {
 		try {
-			return await setAwsCredentials();
+			return setAwsCredentials();
 		} catch (e) {
 			console.trace(e);
 		}
