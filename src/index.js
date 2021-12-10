@@ -134,7 +134,7 @@ exports.Sonnet = class {
 
 			if (!skipInit) {
 				const init = spawnSync(this.terraformBinPath, ['init'], {
-					cwd: './render',
+					cwd: this.renderPath,
 					stdio: [process.stdin, process.stdout, process.stderr]
 				});
 
@@ -145,7 +145,7 @@ exports.Sonnet = class {
 			}
 
 			let apply = spawnSync(this.terraformBinPath, ['apply'].concat(args), {
-				cwd: './render',
+				cwd: this.renderPath,
 				stdio: [process.stdin, process.stdout, process.stderr]
 			});
 
