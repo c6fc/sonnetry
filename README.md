@@ -88,9 +88,9 @@ This is accomplished through Sonnetry's 'bootstrap()' function:
 local aws = import 'aws-sdk';        // Import the AWS SDK
 local sonnetry = import 'sonnetry';  // Import sonnetry
 
-// Create the s3 backend, and return
+// Create the s3 backend and return
 // a terraform s3 backend configuration
-local backend = sonnetry.backend('my-persistent-project');
+local backend = sonnetry.bootstrap('my-persistent-project');
 
 {
   // Save the backend in the project
