@@ -2,5 +2,6 @@
 	local sonnetry = self,
 
 	bootstrap(project):: std.native("bootstrap")(project),
-	envvar(name):: std.native("envvar")(name)
+	envvar(name):: std.native("envvar")(name),
+	path():: std.native("path")()
 }

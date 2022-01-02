@@ -1,0 +1,12 @@
+1.1.3
+	Library
+	- `Sonnetry().auth()` now populates a Sonnetry().identity with the results of STS GetCallerIdentity.
+	- `Sonnetry().auth()` now throws errors instead of existing the process.
+	- `Sonnetry().render()` will now throw an error if the manifestation of the Jsonnet file fails.
+	- `Sonnetry().write()` now supports nested directories.
+	- `sonnetry.bootstrap()` now populates a Sonnetry().projectName. This is only available after calling Sonnetry().render().
+	- New function `sonnetry.path()` returns the absolute path of the directory that Sonnetry was invoked from.
+
+	Binary
+	- The generate, apply, and destroy commands now use the project name from `sonnetry.bootstrap()` to determine the output path to use.
+	- The init command has been removed. Use `npx terraform init` inside the output folder if you need to initialize Terraform manually.

@@ -31,7 +31,7 @@ aws.config.update({
 });
 
 exports.Sonnet = class {
-	renderPath; cleanBeforeRender; jsonnet; lastRender; terraformBinPath;
+	renderPath; cleanBeforeRender; jsonnet; lastRender; terraformBinPath; projectName; identity;
 	constructor(options) {
 
 		options.renderPath ??= "./render";
@@ -58,35 +58,6 @@ exports.Sonnet = class {
 		this.jsonnet = new Jsonnet()
 			.addJpath(path.join(__dirname, '../lib'));
 
-			/*.nativeCallback("aws", (clientObj, method, params) => {
-				clientObj = JSON.parse(clientObj);
-
-				let key = this._cacheKey(['aws', clientObj, method, params]);
-				if (!!this.cache?.[key]) {
-					return this.cache[key];
-				}
-
-				const client = new aws[clientObj.service](clientObj.params);
-
-				this.cache[key] = client[method](JSON.parse(params)).promise();
-
-				return this.cache[key];
-			}, "clientObj", "method", "params")
-			.nativeCallback("bootstrap", (project) => {
-				let key = this._cacheKey(['bootstrap', project]);
-				if (!!this.cache?.[key]) {
-					return this.cache[key];
-				}
-
-				this.cache[key] = this.bootstrap(project);
-
-				return this.cache[key];
-			}, "project")
-			.nativeCallback("envvar", (name) => {
-				return process.env?.[name] ?? false;
-			}, "name")
-			;*/
-
 		this.addFunction("aws", (clientObj, method, params) => {
 			clientObj = JSON.parse(clientObj);
 
@@ -101,7 +72,11 @@ exports.Sonnet = class {
 
 		this.addFunction("envvar", (name) => {
 			return process.env?.[name] ?? false;
-		}, "name")
+		}, "name");
+
+		this.addFunction("path", () => {
+			return `${process.cwd()}/`;
+		});
 
 		return this;
 	}
@@ -125,186 +100,176 @@ exports.Sonnet = class {
 	}
 
 	apply(skipInit = false, autoApprove = false) {
-		try {
-			const args = [];
+		const args = [];
 
-			if (autoApprove) {
-				args.push('-auto-approve');
-			}
+		if (autoApprove) {
+			args.push('-auto-approve');
+		}
 
-			if (!skipInit) {
-				const init = spawnSync(this.terraformBinPath, ['init'], {
-					cwd: this.renderPath,
-					stdio: [process.stdin, process.stdout, process.stderr]
-				});
-
-				if (init.status != 0) {
-					console.log(`[!] Terraform provider initialization failed with status code ${init.status}`);
-					process.exit(init.status);
-				}
-			}
-
-			let apply = spawnSync(this.terraformBinPath, ['apply'].concat(args), {
+		if (!skipInit) {
+			const init = spawnSync(this.terraformBinPath, ['init'], {
 				cwd: this.renderPath,
 				stdio: [process.stdin, process.stdout, process.stderr]
 			});
 
-			if (apply.status != 0) {
-				console.log(`[!] Terraform apply failed with status code ${apply.status}`);
-				process.exit(apply.status);
+			if (init.status != 0) {
+				console.log(`[!] Terraform provider initialization failed with status code ${init.status}`);
+				process.exit(init.status);
 			}
-
-			console.log(`[+] Successfully applied`);
-		} catch (e) {
-			console.trace(e);
 		}
+
+		let apply = spawnSync(this.terraformBinPath, ['apply'].concat(args), {
+			cwd: this.renderPath,
+			stdio: [process.stdin, process.stdout, process.stderr]
+		});
+
+		if (apply.status != 0) {
+			console.log(`[!] Terraform apply failed with status code ${apply.status}`);
+			process.exit(apply.status);
+		}
+
+		console.log(`[+] Successfully applied`);
 	}
 
 	auth() {
 		try {
-			return setAwsCredentials();
+			this.identity = setAwsCredentials();
+
+			if (!!this.identity) {
+				return true;
+			}
 		} catch (e) {
 			console.trace(e);
 		}
 	}
 
 	async getBootstrapBucket() {
-		try {
-			const rg = new aws.ResourceGroups();
+		const rg = new aws.ResourceGroups();
 
-			const resources = await rg.searchResources({
-				ResourceQuery: {
-					Type: "TAG_FILTERS_1_0",
-					Query: JSON.stringify({
-						ResourceTypeFilters: ["AWS::S3::Bucket"],
-						TagFilters: [{
-							Key: "sonnetry-backend",
-							Values: ["true"]
-						}]
-					})
-				}
-			}).promise();
-
-			if (resources.ResourceIdentifiers.length == 1) {
-				return resources.ResourceIdentifiers[0].ResourceArn;
+		const resources = await rg.searchResources({
+			ResourceQuery: {
+				Type: "TAG_FILTERS_1_0",
+				Query: JSON.stringify({
+					ResourceTypeFilters: ["AWS::S3::Bucket"],
+					TagFilters: [{
+						Key: "sonnetry-backend",
+						Values: ["true"]
+					}]
+				})
 			}
+		}).promise();
 
-			if (resources.ResourceIdentifiers.length > 1) {
-				console.log("[!] More than one bootstrap bucket exists in this account. Fix this before continuing.");
-				process.exit(1);
-			}
-
-			return false;
-		} catch (e) {
-			console.trace(e);
+		if (resources.ResourceIdentifiers.length == 1) {
+			return resources.ResourceIdentifiers[0].ResourceArn;
 		}
+
+		if (resources.ResourceIdentifiers.length > 1) {
+			console.log("[!] More than one bootstrap bucket exists in this account. Fix this before continuing.");
+			process.exit(1);
+		}
+
+		return false;
 	}
 
 	async bootstrap(project) {
-		try {
-			const s3 = new aws.S3();
-			const self = this;
-			
-			let bucketName;
-			let bootstrapBucket = await self.getBootstrapBucket();
+		const s3 = new aws.S3();
+		const self = this;
+		
+		let bucketName;
+		let bootstrapBucket = await self.getBootstrapBucket();
 
-			if (!bootstrapBucket) {
-				bucketName = `sonnetry-${Math.random().toString(36).replace(/[^a-z]+/g, '')}-${Math.round(Date.now() / 1000)}`;
+		if (!bootstrapBucket) {
+			bucketName = `sonnetry-${Math.random().toString(36).replace(/[^a-z]+/g, '')}-${Math.round(Date.now() / 1000)}`;
 
-				try {
-					await s3.createBucket({
-						Bucket: bucketName
-					}).promise();
+			try {
+				await s3.createBucket({
+					Bucket: bucketName
+				}).promise();
 
-					await s3.putBucketTagging({
-						Bucket: bucketName,
-						Tagging: {
-							TagSet: [{
-								Key: "sonnetry-backend",
-								Value: "true"
-							}]
-						}
-					}).promise();
+				await s3.putBucketTagging({
+					Bucket: bucketName,
+					Tagging: {
+						TagSet: [{
+							Key: "sonnetry-backend",
+							Value: "true"
+						}]
+					}
+				}).promise();
 
-					await s3.putBucketVersioning({
-						Bucket: bucketName,
-						VersioningConfiguration: {
-							MFADelete: "Disabled",
-							Status: "Enabled"
-						}
-					}).promise();
+				await s3.putBucketVersioning({
+					Bucket: bucketName,
+					VersioningConfiguration: {
+						MFADelete: "Disabled",
+						Status: "Enabled"
+					}
+				}).promise();
 
-					await s3.putPublicAccessBlock({
-						Bucket: bucketName,
-						PublicAccessBlockConfiguration: {
-							BlockPublicAcls: true,
-							BlockPublicPolicy: true,
-							IgnorePublicAcls: true,
-							RestrictPublicBuckets: true
-						}
-					}).promise();
-				} catch (e) {
-					console.log(`Sonnetry error: Unable to create bucket: ${e}`);
-					process.exit(1);
-				}
-
-				console.log(`[+] Created bootstrap bucket ${bucketName}`);
-
-				bootstrapBucket = `arn:aws:s3:::${bucketName}`;
-			} else {
-				bucketName = bootstrapBucket.substr(13);
-				console.log(`[+] Using bootstrap bucket ${bucketName}`);
+				await s3.putPublicAccessBlock({
+					Bucket: bucketName,
+					PublicAccessBlockConfiguration: {
+						BlockPublicAcls: true,
+						BlockPublicPolicy: true,
+						IgnorePublicAcls: true,
+						RestrictPublicBuckets: true
+					}
+				}).promise();
+			} catch (e) {
+				console.log(`Sonnetry error: Unable to create bucket: ${e}`);
+				process.exit(1);
 			}
 
-			let bootstrapLocation = await s3.getBucketLocation({
-				Bucket: bucketName
-			}).promise();
+			console.log(`[+] Created bootstrap bucket ${bucketName}`);
 
-			bootstrapLocation = (bootstrapLocation.LocationConstraint == '') ? "us-east-1" : bootstrapLocation.LocationConstraint;
+			bootstrapBucket = `arn:aws:s3:::${bucketName}`;
+		} else {
+			bucketName = bootstrapBucket.substr(13);
+			console.log(`[+] Using bootstrap bucket ${bucketName}`);
+		}
 
-			return {
-				terraform: {
-					backend: {
-						s3: {
-							bucket: bucketName,
-							key: `sonnetry/${project}/terraform.tfstate`,
-							region: bootstrapLocation
-						}
+		let bootstrapLocation = await s3.getBucketLocation({
+			Bucket: bucketName
+		}).promise();
+
+		bootstrapLocation = (bootstrapLocation.LocationConstraint == '') ? "us-east-1" : bootstrapLocation.LocationConstraint;
+
+		this.projectName = project;
+
+		return {
+			terraform: {
+				backend: {
+					s3: {
+						bucket: bucketName,
+						key: `sonnetry/${project}/terraform.tfstate`,
+						region: bootstrapLocation
 					}
 				}
 			}
-		} catch (e) {
-			console.trace(e);
 		}
 	}
 
 	destroy(skipInit = false, autoApprove = false) {
 
-		try {
-			const args = [];
+		const args = [];
 
-			if (autoApprove) {
-				args.push('-auto-approve');
-			}
-
-			if (!skipInit) {
-				this.init();
-			}
-
-			const destroy = spawnSync(this.terraformBinPath, ['destroy'].concat(args), {
-				cwd: './render',
-				stdio: [process.stdin, process.stdout, process.stderr]
-			});
-
-			if (destroy.status != 0) {
-				console.log(`[!] Terraform destroy failed with status code ${init.status}`);
-				process.exit(destroy.status);
-			}
-
-			console.log(`[+] Successfully destroyed`);
-		} catch (e) {
-			console.trace(e);
+		if (autoApprove) {
+			args.push('-auto-approve');
 		}
+
+		if (!skipInit) {
+			this.init();
+		}
+
+		const destroy = spawnSync(this.terraformBinPath, ['destroy'].concat(args), {
+			cwd: this.renderPath,
+			stdio: [process.stdin, process.stdout, process.stderr]
+		});
+
+		if (destroy.status != 0) {
+			console.log(`[!] Terraform destroy failed with status code ${init.status}`);
+			process.exit(destroy.status);
+		}
+
+		console.log(`[+] Successfully destroyed`);
 	}
 
 	export(name, value) {
@@ -323,40 +288,34 @@ exports.Sonnet = class {
 	}
 
 	init(args = []) {
+		const init = spawnSync(this.terraformBinPath, ['init'].concat(args), {
+			cwd: this.renderPath,
+			stdio: [process.stdin, process.stdout, process.stderr]
+		});
 
-		try {
-			const init = spawnSync(this.terraformBinPath, ['init'].concat(args), {
-				cwd: './render',
-				stdio: [process.stdin, process.stdout, process.stderr]
-			});
-
-			if (init.status != 0) {
-				console.log(`[!] Terraform init failed with status code ${init.status}`);
-				process.exit(init.status);
-			}
-
-			console.log(`[+] Successfully initialized`);
-		} catch (e) {
-			console.trace(e);
+		if (init.status != 0) {
+			throw new Error(`[!] Terraform init failed with status code ${init.status}`);
 		}
+
+		console.log(`[+] Successfully initialized`);
 	}
 
 	async render(file) {
-		try {
-			if (!fs.existsSync(file)) {
-				throw new Error(`Sonnetry Error: ${file} does not exist.`);
-			}
-
-			this.renderPath = (this.renderPath.split("").slice(-1)[0] == "/") ?
-				this.renderPath.split("").slice(0, -1).join("") :
-				this.renderPath;
-
-			this.lastRender = JSON.parse(await this.jsonnet.evaluateFile(file));
-
-			return this.lastRender;
-		} catch (e) {
-			console.trace(e);
+		if (!fs.existsSync(file)) {
+			throw new Error(`Sonnetry Error: ${file} does not exist.`);
 		}
+
+		this.renderPath = (this.renderPath.split("").slice(-1)[0] == "/") ?
+			this.renderPath.split("").slice(0, -1).join("") :
+			this.renderPath;
+
+		try {
+			this.lastRender = JSON.parse(await this.jsonnet.evaluateFile(file));
+		} catch (e) {
+			throw new Error(`Error parsing Jsonnet file: ${e}`);
+		}
+
+		return this.lastRender;
 	}
 
 	toString() {
@@ -370,7 +329,7 @@ exports.Sonnet = class {
 	write(files = this.lastRender) {
 		try {
 			if (!fs.existsSync(this.renderPath)) {
-				fs.mkdirSync(this.renderPath);
+				fs.mkdirSync(this.renderPath, { recursive: true });
 			}
 		} catch (e) {
 			throw new Error(`Sonnetry Error: renderPath could not be created. ${e}`);
@@ -383,8 +342,7 @@ exports.Sonnet = class {
 					.filter(f => regex.test(f))
 					.map(f => fs.unlinkSync(`${this.renderPath}/${f}`));
 			} catch (e) {
-				console.log(`[!] Failed to remove *.tf.json files from renderPath. ${e}`);
-				process.exit(1);
+				throw new Error(`Failed to remove *.tf.json files from renderPath. ${e}`);
 			}
 		}
 
@@ -395,8 +353,7 @@ exports.Sonnet = class {
 				console.log('  ' + outputPath);
 			}
 		} catch (e) {
-			console.log(`[!] Failed to write to renderPath. ${e}`);
-			process.exit(1);
+			throw new Error(`Failed to write to renderPath. ${e}`);
 		}
 
 		return this;
@@ -424,7 +381,7 @@ async function setAwsCredentials() {
 		const caller = await verifyCredentials();
 		if (!!caller) {
 			console.log(`[+] Using ${caller.Arn ?? caller.arn}`);
-			return true;
+			return caller;
 		}
 
 		console.log(`[!] No profile was specified, and the default credential context is invalid.`);
@@ -445,8 +402,7 @@ async function setAwsCredentials() {
 	const credfile = ini.parse(fs.readFileSync(`${os.homedir()}/.aws/credentials`, 'utf-8'));
 
 	if (!credfile[profile]) {
-		console.log(`[!] AWS Profile [${profile}] isn't set.`);
-		process.exit(1);
+		throw new Error(`AWS Profile [${profile}] isn't set.`);
 	}
 
 	const creds = credfile[profile];
@@ -469,18 +425,17 @@ async function setAwsCredentials() {
 			let valid = await verifyCredentials();
 
 			if (!valid) {
-				throw "Verification Error";
+				throw new Error("AWS profile credential verification error");
 			}
 
 			if (fs.existsSync(cacheFile)) {
 				fs.unlinkSync(cacheFile);
 			}
 
-			return true;
+			return valid;
 
 		} catch (e) {
-			console.log(`[!] Long term credentials for profile [${profile}] are invalid: ${e}`);
-			process.exit(1);
+			throw new Error(`Long term credentials for profile [${profile}] are invalid: ${e}`);
 		}
 	}
 
@@ -501,7 +456,7 @@ async function setAwsCredentials() {
 				let valid = await verifyCredentials();
 
 				if (!valid) {
-					throw "Verification Error";
+					throw new Error("AWS credential cache verification error");
 				}
 
 				process.env.AWS_PROFILE = '';
@@ -511,7 +466,7 @@ async function setAwsCredentials() {
 
 				console.log(`[+] Successfully resumed session as ${cache.profile}; Valid for ${((cache.expireTime - Date.now()) / 60000).toFixed(0)} minutes.`);
 
-				return true;
+				return valid;
 			}
 
 			console.log(`[!] Cache expires in ${((cache.expireTime - Date.now()) / 60000).toFixed(0)} minutes. Skipping.`);
@@ -550,7 +505,7 @@ async function setAwsCredentials() {
 			let valid = await verifyCredentials();
 
 			if (!valid) {
-				throw "Verification Error";
+				throw new Error("AWS assumerole credential verification error");
 			}
 
 			console.log(`[+] Successfully assumed role [${creds.role_arn}]`);
@@ -569,7 +524,7 @@ async function setAwsCredentials() {
 			process.env.AWS_SECRET_ACCESS_KEY = aws.config.credentials.secretAccessKey;
 			process.env.AWS_SESSION_TOKEN = aws.config.credentials.sessionToken ?? '';
 
-			return true;
+			return valid;
 
 		} catch(e) {
 			console.log(`[!] Failed to assume role ${creds.role_arn} via profile ${creds.source_profile}: ${e}`);

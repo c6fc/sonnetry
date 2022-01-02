@@ -34,10 +34,7 @@ const sonnetry = new Sonnet({
 			});
 		}, async (argv) => {
 
-			console.log(`[+] Evaluating ${argv.filename} into ./render/`);
-
-			await sonnetry.render(argv.filename)
-			sonnetry.write();
+			await renderWrite(sonnetry, argv);
 
 			sonnetry.apply(argv.skipInit, argv.autoApprove);
 			
@@ -56,13 +53,10 @@ const sonnetry = new Sonnet({
 			});
 		}, async (argv) => {
 
-			console.log(`[+] Evaluating ${argv.filename} into ./render/`);
-
-			await sonnetry.render(argv.filename)
-			sonnetry.write();
+			await renderWrite(sonnetry, argv);
 
 			sonnetry.destroy(argv.skipInit, argv.autoApprove);
-			
+
 		})
 		.command("generate <filename>", "Generates files from a configuration", (yargs) => {
 			return yargs.positional('filename', {
@@ -70,24 +64,30 @@ const sonnetry = new Sonnet({
 			})
 		}, async (argv) => {
 
-			console.log(`[+] Evaluating ${argv.filename} into ./render/`);
+			await renderWrite(sonnetry, argv);
 
-			await sonnetry.render(argv.filename)
-			sonnetry.write();
-			
-		})
-		.command("init [args...]", "Manually initializes Terraform", (yargs) => {
-			return yargs.positional('args', {
-				describe: 'other arguments to pass for initialization'
-			})
-		}, async (argv) => {
-
-			console.log(`[+] Initializing Terraform in ./render/ with [${argv.args.join(" ")}]`);
-
-			await sonnetry.init(argv.args)
-			
 		})
 		.showHelpOnFail(false)
 		.help("help")
 		.argv;
 })();
+
+async function renderWrite(sonnetry, argv) {
+	console.log(`[+] Evaluating ${argv.filename}`);
+
+	try {
+		await sonnetry.render(argv.filename);
+	} catch (e) {
+		console.log(`\n${e.toString()}`);
+		console.log(`\n[!] Unable to render ${argv.filename}. Fix the errors above and try again`);
+		process.exit(1);
+	}
+
+	sonnetry.renderPath = `./render-${sonnetry.projectName}` || './render';
+
+	console.log(`[+] Writing to ${sonnetry.renderPath}`);
+
+	sonnetry.write();
+
+	return true;
+}
