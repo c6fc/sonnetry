@@ -39,14 +39,6 @@ exports.Sonnet = class {
 
 		this.cache = {};
 
-		try {
-			if (!fs.existsSync(options.renderPath)) {
-				fs.mkdirSync(options.renderPath);
-			}
-		} catch (e) {
-			throw new Error(`Sonnetry Error: renderPath could not be created. ${e}`);
-		}
-
 		const terraformModulePath = require.resolve('@jahed/terraform/package.json').split('/node_modules/')[0];
 		const terraformExecPath = terraform.path.split('/node_modules/')[1];
 

@@ -7,7 +7,7 @@
   },
   "name": "@c6fc/sonnetry",
   "description": "AWS + Terraform + Jsonnet in perfect harmony.",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "main": "src/index.js",
   "directories": {
     "lib": "lib"
