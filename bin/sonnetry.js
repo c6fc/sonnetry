@@ -31,6 +31,10 @@ const sonnetry = new Sonnet({
 				alias: 's',
 				type: 'boolean',
 				description: 'Skip provider initialization.'
+			}).option('skip-refresh', {
+				alias: 'q',
+				type: 'boolean',
+				description: 'Skip resource refresh. "q" is for "quick"'
 			});
 		}, async (argv) => {
 
@@ -83,7 +87,7 @@ async function renderWrite(sonnetry, argv) {
 		process.exit(1);
 	}
 
-	sonnetry.renderPath = `./render-${sonnetry.projectName}` || './render';
+	sonnetry.renderPath = (!!sonnetry.projectName) ? `./render-${sonnetry.projectName}` : './render';
 
 	console.log(`[+] Writing to ${sonnetry.renderPath}`);
 

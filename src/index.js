@@ -67,7 +67,7 @@ exports.Sonnet = class {
 		}, "name");
 
 		this.addFunction("path", () => {
-			return `${process.cwd()}/`;
+			return `${process.cwd()}`;
 		});
 
 		return this;
@@ -91,11 +91,15 @@ exports.Sonnet = class {
 		}, ...parameters);
 	}
 
-	apply(skipInit = false, autoApprove = false) {
+	apply(skipInit = false, autoApprove = false, skipRefresh = false) {
 		const args = [];
 
 		if (autoApprove) {
 			args.push('-auto-approve');
+		}
+
+		if (skipRefresh) {
+			args.push('-refresh=false');
 		}
 
 		if (!skipInit) {
