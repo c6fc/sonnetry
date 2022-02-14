@@ -31,7 +31,7 @@ aws.config.update({
 });
 
 exports.Sonnet = class {
-	renderPath; cleanBeforeRender; jsonnet; lastRender; terraformBinPath; projectName; identity;
+	renderPath; cleanBeforeRender; jsonnet; lastRender; terraformBinPath; projectName; identity; activePath;
 	constructor(options) {
 
 		options.renderPath ??= "./render";
@@ -301,6 +301,16 @@ exports.Sonnet = class {
 			throw new Error(`Sonnetry Error: ${file} does not exist.`);
 		}
 
+		this.activePath = path.dirname(path.resolve(file));
+
+		const moduleFile = path.resolve(path.join(__dirname, '../lib/modules'));
+
+		if (fs.existsSync(moduleFile)) {
+			// throw new Error(`[!] The module target file [${moduleFile}] already exists. Remove or rename it before continuing.`);
+		}
+
+		this.loadModules(moduleFile);
+
 		this.renderPath = (this.renderPath.split("").slice(-1)[0] == "/") ?
 			this.renderPath.split("").slice(0, -1).join("") :
 			this.renderPath;
@@ -311,7 +321,59 @@ exports.Sonnet = class {
 			throw new Error(`Error parsing Jsonnet file: ${e}`);
 		}
 
+		if (fs.existsSync(moduleFile)) {
+			fs.unlinkSync(moduleFile);
+		}
+
 		return this.lastRender;
+	}
+
+	loadModules(moduleFile) {
+
+		let registeredFunctions = [];
+
+		const modulePath = path.join(this.activePath, 'sonnetry_modules');
+
+		if (!fs.existsSync(modulePath)) {
+			return [];
+		}
+
+		const regex = /.*?\.js$/
+		const moduleList = fs.readdirSync(modulePath)
+			.filter(f => regex.test(f));
+
+		if (moduleList.length < 1) {
+			return [];
+		}
+
+		let magicContent = [];
+
+		moduleList.map(f => {
+			const file = path.join(modulePath, f);
+
+			try {
+				const functions = require(file);
+
+				registeredFunctions = registeredFunctions.concat(Object.keys(functions).map(e => {
+					
+					const [fn, ...parameters] = functions[e];
+
+					magicContent.push(`\t${e}(${parameters.join(', ')}):: std.native('${e}')(${parameters.join(', ')})`);
+
+					this.addFunction(e, fn, ...parameters);
+					return e;
+				}));
+
+			} catch (e) {
+				throw new Error(`Unable to register external module: ${e}`);
+			}
+		});
+
+		fs.writeFileSync(moduleFile, `{\n${magicContent.join(",\n")}\n}`);
+
+		console.log(`[+] Registered ${moduleList.length} module${(moduleList.length > 1) ? 's' : ''} comprising ${registeredFunctions.length} function${(registeredFunctions.length > 1) ? 's' : ''}: [ ${registeredFunctions.sort().join(', ')} ]`)
+
+		return registeredFunctions;
 	}
 
 	toString() {
@@ -376,7 +438,7 @@ async function setAwsCredentials() {
 
 		const caller = await verifyCredentials();
 		if (!!caller) {
-			console.log(`[+] Using ${caller.Arn ?? caller.arn}`);
+			console.log(`[+] Authenticated as ${caller.Arn ?? caller.arn}`);
 			return caller;
 		}
 

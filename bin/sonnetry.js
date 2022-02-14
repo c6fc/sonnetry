@@ -77,19 +77,19 @@ const sonnetry = new Sonnet({
 })();
 
 async function renderWrite(sonnetry, argv) {
-	console.log(`[+] Evaluating ${argv.filename}`);
+	console.log(`[*] Evaluating ${argv.filename}`);
 
 	try {
 		await sonnetry.render(argv.filename);
 	} catch (e) {
-		console.log(`\n${e.toString()}`);
+		console.trace(e);
 		console.log(`\n[!] Unable to render ${argv.filename}. Fix the errors above and try again`);
 		process.exit(1);
 	}
 
 	sonnetry.renderPath = (!!sonnetry.projectName) ? `./render-${sonnetry.projectName}` : './render';
 
-	console.log(`[+] Writing to ${sonnetry.renderPath}`);
+	console.log(`[*] Writing to ${sonnetry.renderPath}`);
 
 	sonnetry.write();
 
