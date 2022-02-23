@@ -488,7 +488,7 @@ async function setAwsCredentials() {
 				throw new Error("AWS profile credential verification error");
 			}
 
-			console.log(`[+] Authenticated as ${caller.Arn ?? caller.arn}`);
+			console.log(`[+] Authenticated as ${valid.Arn ?? valid.arn}`);
 
 			if (fs.existsSync(cacheFile)) {
 				fs.unlinkSync(cacheFile);
