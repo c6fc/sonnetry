@@ -70,6 +70,8 @@ exports.Sonnet = class {
 			return `${process.cwd()}`;
 		});
 
+		this.aws = aws;
+
 		return this;
 	}
 
