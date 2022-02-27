@@ -142,28 +142,41 @@ exports.Sonnet = class {
 	}
 
 	async getBootstrapBucket() {
-		const rg = new aws.ResourceGroups();
 
-		const resources = await rg.searchResources({
-			ResourceQuery: {
-				Type: "TAG_FILTERS_1_0",
-				Query: JSON.stringify({
-					ResourceTypeFilters: ["AWS::S3::Bucket"],
-					TagFilters: [{
-						Key: "sonnetry-backend",
-						Values: ["true"]
-					}]
-				})
-			}
-		}).promise();
+		const ec2 = new aws.EC2({ region: "us-east-1" });
 
-		if (resources.ResourceIdentifiers.length == 1) {
-			return resources.ResourceIdentifiers[0].ResourceArn;
+		let regions = await ec2.describeRegions().promise()
+
+		regions = regions.Regions
+			.filter(r => ["opt-in-not-required", "opted-in"].indexOf(r.OptInStatus) > -1)
+			.map(r => r.RegionName);
+
+		let resources = await Promise.all(regions.map(region => {
+			const rg = new aws.ResourceGroups({ region });
+
+			return rg.searchResources({
+				ResourceQuery: {
+					Type: "TAG_FILTERS_1_0",
+					Query: JSON.stringify({
+						ResourceTypeFilters: ["AWS::S3::Bucket"],
+						TagFilters: [{
+							Key: "sonnetry-backend",
+							Values: ["true"]
+						}]
+					})
+				}
+			}).promise();
+		}));
+
+		const arns = resources.flatMap(e => e.ResourceIdentifiers.map(r => r.ResourceArn));
+
+		if (arns.length == 1) {
+			return arns[0];
 		}
 
-		if (resources.ResourceIdentifiers.length > 1) {
+		if (arns.length > 1) {
 			console.log("[!] More than one bootstrap bucket exists in this account. Fix this before continuing.");
-			process.exit(1);
+			return process.exit(1);
 		}
 
 		return false;
