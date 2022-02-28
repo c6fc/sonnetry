@@ -143,32 +143,12 @@ exports.Sonnet = class {
 
 	async getBootstrapBucket() {
 
-		const ec2 = new aws.EC2({ region: "us-east-1" });
+		const s3 = new aws.S3()
+		const buckets = await s3.listBuckets().promise();
 
-		let regions = await ec2.describeRegions().promise()
-
-		regions = regions.Regions
-			.filter(r => ["opt-in-not-required", "opted-in"].indexOf(r.OptInStatus) > -1)
-			.map(r => r.RegionName);
-
-		let resources = await Promise.all(regions.map(region => {
-			const rg = new aws.ResourceGroups({ region });
-
-			return rg.searchResources({
-				ResourceQuery: {
-					Type: "TAG_FILTERS_1_0",
-					Query: JSON.stringify({
-						ResourceTypeFilters: ["AWS::S3::Bucket"],
-						TagFilters: [{
-							Key: "sonnetry-backend",
-							Values: ["true"]
-						}]
-					})
-				}
-			}).promise();
-		}));
-
-		const arns = resources.flatMap(e => e.ResourceIdentifiers.map(r => r.ResourceArn));
+		const arns = buckets.Buckets
+			.map(e => e.Name)
+			.filter(e => /^sonnetry-[a-z]*?-\d{10}$/.test(e));
 
 		if (arns.length == 1) {
 			return arns[0];
@@ -233,7 +213,7 @@ exports.Sonnet = class {
 
 			bootstrapBucket = `arn:aws:s3:::${bucketName}`;
 		} else {
-			bucketName = bootstrapBucket.substr(13);
+			bucketName = bootstrapBucket; //.substr(13);
 			console.log(`[+] Using bootstrap bucket ${bucketName}`);
 		}
 
