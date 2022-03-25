@@ -32,6 +32,11 @@ aws.config.update({
 
 exports.Sonnet = class {
 	renderPath; cleanBeforeRender; jsonnet; lastRender; terraformBinPath; projectName; identity; activePath;
+	
+	projectName = false;
+	bootstrapBucket = false;
+	bootstrapLocation = false;
+
 	constructor(options) {
 
 		options.renderPath ??= "./render";
@@ -141,9 +146,32 @@ exports.Sonnet = class {
 		}
 	}
 
+	async getArtifact(name) {
+		const self = this;
+
+		if (!self.bootstrapBucket || !self.projectName) {
+			return false;
+		}
+
+		const s3 = new aws.S3({ region: (self.bootstrapBucketLocation || 'us-east-1') });
+
+		let object;
+
+		try {
+			object = await s3.getObject({
+				Bucket: self.bootstrapBucket,
+				Key: `sonnetry/${self.projectName}/artifacts/${name}`
+			}).promise();
+		} catch (e) {
+			return false;
+		}
+
+		return object?.Body;
+	}
+
 	async getBootstrapBucket() {
 
-		const s3 = new aws.S3()
+		const s3 = new aws.S3();
 		const buckets = await s3.listBuckets().promise();
 
 		const arns = buckets.Buckets
@@ -224,6 +252,8 @@ exports.Sonnet = class {
 		bootstrapLocation = (bootstrapLocation.LocationConstraint == '') ? "us-east-1" : bootstrapLocation.LocationConstraint;
 
 		this.projectName = project;
+		this.bootstrapBucket = bootstrapBucket;
+		this.bootstrapLocation = bootstrapLocation;
 
 		return {
 			terraform: {
@@ -369,6 +399,26 @@ exports.Sonnet = class {
 		console.log(`[+] Registered ${moduleList.length} module${(moduleList.length > 1) ? 's' : ''} comprising ${registeredFunctions.length} function${(registeredFunctions.length > 1) ? 's' : ''}: [ ${registeredFunctions.sort().join(', ')} ]`)
 
 		return registeredFunctions;
+	}
+
+	async putArtifact(name, content) {
+		const self = this;
+
+		if (!self.bootstrapBucket || !self.projectName) {
+			throw new Error('Cannot putArtifact before a project is bootstrapped.');
+		}
+
+		const s3 = new aws.S3({ region: self.bootstrapBucketLocation });
+
+		let object;
+
+		object = await s3.putObject({
+			Bucket: self.bootstrapBucket,
+			Key: `sonnetry/${self.projectName}/artifacts/${name}`,
+			Body: content
+		}).promise();
+
+		return true;
 	}
 
 	toString() {
