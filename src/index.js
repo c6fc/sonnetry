@@ -92,7 +92,7 @@ exports.Sonnet = class {
 				return this.cache[key];
 			}
 
-			this.cache[key] = fn(...args);
+			this.cache[key] = fn.call({ aws: this.aws }, ...args);
 
 			return this.cache[key];
 		}, ...parameters);
@@ -380,8 +380,17 @@ exports.Sonnet = class {
 				const functions = require(file);
 
 				registeredFunctions = registeredFunctions.concat(Object.keys(functions).map(e => {
-					
-					const [fn, ...parameters] = functions[e];
+
+					let fn, parameters;
+
+					if (typeof functions[e] == "object") {
+						[fn, ...parameters] = functions[e];
+					}
+
+					if (typeof functions[e] == "function") {
+						fn = functions[e];
+						parameters = getFunctionParameterList(fn);
+					}
 
 					magicContent.push(`\t${e}(${parameters.join(', ')}):: std.native('${e}')(${parameters.join(', ')})`);
 
@@ -663,4 +672,31 @@ function getMFAToken(mfaSerial) {
 			}
 		}
 	});
+}
+
+function getFunctionParameterList(fn) {
+
+	let str = fn.toString();
+
+	str = str.replace(/\/\*[\s\S]*?\*\//g, '')
+		.replace(/\/\/(.)*/g, '')
+		.replace(/{[\s\S]*}/, '')
+		.replace(/=>/g, '')
+		.trim();
+
+	const start = str.indexOf("(") + 1;
+	const end = str.length - 1;
+
+	const result = str.substring(start, end).split(", ");
+
+	const params = [];
+	result.forEach(element => {
+		element = element.replace(/=[\s\S]*/g, '').trim();
+
+		if(element.length > 0) {
+			params.push(element);
+		}
+	});
+
+	return params;
 }
