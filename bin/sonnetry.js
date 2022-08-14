@@ -31,17 +31,16 @@ const sonnetry = new Sonnet({
 				alias: 's',
 				type: 'boolean',
 				description: 'Skip provider initialization.'
-			}).option('skip-refresh', {
-				alias: 'q',
+			}).option('reconfigure', {
+				alias: 'r',
 				type: 'boolean',
-				description: 'Skip resource refresh. "q" is for "quick"'
+				description: 'Passes the -reconfigure flag to terraform init'
 			});
 		}, async (argv) => {
 
 			await renderWrite(sonnetry, argv);
 
-			sonnetry.apply(argv.skipInit, argv.autoApprove);
-			
+			sonnetry.apply(argv.skipInit, argv.autoApprove, argv.reconfigure);
 		})
 		.command("destroy <filename>", "Destroys all resources in a given configuration", (yargs) => {
 			return yargs.positional('filename', {
