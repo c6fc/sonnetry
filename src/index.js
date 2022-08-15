@@ -403,7 +403,8 @@ exports.Sonnet = class {
 			// throw new Error(`[!] The module target file [${moduleFile}] already exists. Remove or rename it before continuing.`);
 		}
 
-		this.loadModules(moduleFile);
+		this.loadModulesFromModuleDirectory(moduleFile);
+		this.loadModulesFromPackageList();
 
 		this.renderPath = (this.renderPath.split("").slice(-1)[0] == "/") ?
 			this.renderPath.split("").slice(0, -1).join("") :
@@ -422,9 +423,7 @@ exports.Sonnet = class {
 		return this.lastRender;
 	}
 
-	loadModules(moduleFile) {
-
-		let registeredFunctions = [];
+	loadModulesFromModuleDirectory(moduleFile) {
 
 		const modulePath = path.join(this.activePath, 'sonnetry_modules');
 
@@ -433,17 +432,42 @@ exports.Sonnet = class {
 		}
 
 		const regex = /.*?\.js$/
-		const moduleList = fs.readdirSync(modulePath)
-			.filter(f => regex.test(f));
+		const fileList = fs.readdirSync(modulePath)
+			.filter(f => regex.test(f))
+			.map(f => path.join(modulePath, f));
 
-		if (moduleList.length < 1) {
+		return this.loadModulesFromFileList(fileList, moduleFile);
+	}
+
+	loadModulesFromPackageList() {
+		const packagePath = path.join(this.activePath, 'sonnetry_modules', 'packages.json');
+
+		if (!fs.existsSync(packagePath)) {
+			console.log(`[-] No sonnetry_modules/packages.json file found. Skipping package-based module import.`);
+			return [];
+		}
+
+		const packages = JSON.parse(fs.readFileSync(packagePath));
+
+		Object.keys(packages).map(k => {
+			const fileList = packages[k].map(m => require.resolve(m));
+			const moduleFile = path.resolve(path.join(__dirname, '..', 'lib', k));
+
+			this.loadModulesFromFileList(fileList, moduleFile);
+		});
+	}
+
+	loadModulesFromFileList(fileList, moduleFile) {
+
+		let registeredFunctions = [];
+
+		if (fileList.length < 1) {
 			return [];
 		}
 
 		let magicContent = [];
 
-		moduleList.map(f => {
-			const file = path.join(modulePath, f);
+		fileList.map(file => {
 
 			try {
 				const functions = require(file);
@@ -474,9 +498,9 @@ exports.Sonnet = class {
 
 		fs.writeFileSync(moduleFile, `{\n${magicContent.join(",\n")}\n}`);
 
-		console.log(`[+] Registered ${moduleList.length} module${(moduleList.length > 1) ? 's' : ''} comprising ${registeredFunctions.length} function${(registeredFunctions.length > 1) ? 's' : ''}: [ ${registeredFunctions.sort().join(', ')} ]`)
+		console.log(`[+] Registered ${fileList.length} module${(fileList.length > 1) ? 's' : ''} comprising ${registeredFunctions.length} function${(registeredFunctions.length > 1) ? 's' : ''}: [ ${registeredFunctions.sort().join(', ')} ]`)
 
-		return registeredFunctions;
+		return { registeredFunctions, magicContent };
 	}
 
 	async putArtifact(name, content) {
@@ -667,39 +691,41 @@ async function setAwsCredentials() {
 	// Initialize and test the cache before trying anything else.
 	let cache;
 
-	try {
+	if (fs.existsSync(cacheFile)) {
+		try {
 
-		cache = (fs.existsSync(cacheFile)) ? JSON.parse(fs.readFileSync(cacheFile)) : {};
+			cache = JSON.parse(fs.readFileSync(cacheFile));
 
-		if ((!!!process.env.SONNETRY_ASSUMEROLE && cache.profile == profile) || cache.profile == process.env.SONNETRY_ASSUMEROLE) {
-			if (cache.expireTime > Date.now() + 2700000) {
+			if (!!cache.expireTime && (!!!process.env.SONNETRY_ASSUMEROLE && cache.profile == profile) || cache.profile == process.env.SONNETRY_ASSUMEROLE) {
+				if (cache.expireTime > Date.now() + 2700000) {
 
-				aws.config.update({
-					credentials: cache
-				});
+					aws.config.update({
+						credentials: cache
+					});
 
-				valid = await verifyCredentials();
+					valid = await verifyCredentials();
 
-				if (!valid) {
-					throw new Error("AWS credential cache verification error");
+					if (!valid) {
+						throw new Error("AWS credential cache verification error");
+					}
+
+					process.env.AWS_PROFILE = '';
+					process.env.AWS_ACCESS_KEY_ID = aws.config.credentials.accessKeyId;
+					process.env.AWS_SECRET_ACCESS_KEY = aws.config.credentials.secretAccessKey;
+					process.env.AWS_SESSION_TOKEN = aws.config.credentials.sessionToken ?? '';
+
+					console.log(`[+] Successfully resumed session as ${cache.profile}; Valid for ${((cache.expireTime - Date.now()) / 60000).toFixed(0)} minutes.`);
+
+					return valid;
 				}
 
-				process.env.AWS_PROFILE = '';
-				process.env.AWS_ACCESS_KEY_ID = aws.config.credentials.accessKeyId;
-				process.env.AWS_SECRET_ACCESS_KEY = aws.config.credentials.secretAccessKey;
-				process.env.AWS_SESSION_TOKEN = aws.config.credentials.sessionToken ?? '';
-
-				console.log(`[+] Successfully resumed session as ${cache.profile}; Valid for ${((cache.expireTime - Date.now()) / 60000).toFixed(0)} minutes.`);
-
-				return valid;
+				console.log(`[!] Cache expires in ${((cache.expireTime - Date.now()) / 60000).toFixed(0)} minutes. Skipping.`);
 			}
 
-			console.log(`[!] Cache expires in ${((cache.expireTime - Date.now()) / 60000).toFixed(0)} minutes. Skipping.`);
+		} catch (e) {
+			console.log(e);
+			cache = {};
 		}
-
-	} catch (e) {
-		console.log(e);
-		cache = {};
 	}
 
 	// Use long-term creds if they're present. Remove the cache if successful.
