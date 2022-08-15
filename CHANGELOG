@@ -1,3 +1,8 @@
+2.3.0
+    - S3 bucket now gets SSL Only bucket policy applied at creation. Existing buckets are not modified.
+    - Added support for SONNETRY_ASSUMEROLE envvar, which assumes the provided ARN before generating/deploying
+    - Added ability to read remote state of other projects, including non-output attributes.
+    - Added support for modules referenced as NPM packages when defined in sonnetry_modules/packages.json
 1.3.0
 	- Removed trailing slash from `sonnetry.path()`
 	- Fixed binary renderPath bug when projectName was undefined.
