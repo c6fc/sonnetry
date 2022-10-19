@@ -1,20 +1,6 @@
 'use strict';
 
-/*
-	Check if @jahed/terraform is present.
-	It's done this way to allow arbitrary
-	versions without causing dependency
-	issues.
-*/
-
-try {
-	require.resolve('@jahed/terraform/package.json');
-} catch (e) {
-	console.log(`[!] Missing package @jahed/terraform. Use NPM to install this package using the Terraform version you require.`);
-	process.exit(1);
-}
-
-const terraform = require('@jahed/terraform');
+const terraform = require('@c6fc/terraform');
 
 const fs = require("fs");
 const os = require("os");
@@ -45,10 +31,7 @@ exports.Sonnet = class {
 		this.cache = {};
 		this.remoteStates = {};
 
-		const terraformModulePath = require.resolve('@jahed/terraform/package.json').split('/node_modules/')[0];
-		const terraformExecPath = terraform.path.split('/node_modules/')[1];
-
-		this.terraformBinPath = `${terraformModulePath}/node_modules/${terraformExecPath}`;
+		this.terraformBinPath = terraform.executablePath;
 
 		this.renderPath = options.renderPath;
 		this.cleanBeforeRender = options.cleanBeforeRender;
