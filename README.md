@@ -4,11 +4,19 @@ Sonnetry extends Jsonnet with the power of the AWS SDK for Node, and empowers it
 
 ## Installation
 
-Sonnetry relies on the `@c6fc/terraform` package to provide terraform binaries, but allows you to specify the version by installing it manually. Use the version of Terraform you want as the version for `@c6fc/terraform` during installation. To use Terraform v0.15.4 for example, use this command:
+Sonnetry relies on the `@c6fc/terraform` package to provide terraform binaries, but allows you to specify the version by installing it manually:
 
 ```sh
-$ npm install @c6fc/sonnetry @c6fc/terraform@0.15.4      # Project-local
-$ npm install -g @c6fc/sonnetry @c6fc/terraform@0.15.4   # Global
+$ npm install @c6fc/sonnetry @c6fc/terraform      # Project-local
+$ npm install -g @c6fc/sonnetry @c6fc/terraform   # Global
+```
+
+To specify the terraform version to use, update your `package.json` to include a `tf_version` config element.
+
+```json
+"config": {
+  "tf_version": "0.15.4"
+}
 ```
 
 ## Jsonnet extended by the AWS SDK
