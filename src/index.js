@@ -90,7 +90,9 @@ exports.Sonnet = class {
 		}, ...parameters);
 	}
 
-	apply(skipInit = false, autoApprove = false, reconfigure = false) {
+	async apply(skipInit = false, autoApprove = false, reconfigure = false) {
+		await terraform.isReady;
+
 		const args = [];
 		const initArgs = ['init'];
 
@@ -320,7 +322,8 @@ exports.Sonnet = class {
 		}
 	}
 
-	destroy(skipInit = false, autoApprove = false) {
+	async destroy(skipInit = false, autoApprove = false) {
+		await terraform.isReady;
 
 		const args = [];
 
@@ -360,7 +363,9 @@ exports.Sonnet = class {
 		return this;
 	}
 
-	init(args = []) {
+	async init(args = []) {
+		await terraform.isReady;
+
 		const init = spawnSync(this.terraformBinPath, ['init'].concat(args), {
 			cwd: this.renderPath,
 			stdio: [process.stdin, process.stdout, process.stderr]

@@ -39,8 +39,7 @@ const sonnetry = new Sonnet({
 		}, async (argv) => {
 
 			await renderWrite(sonnetry, argv);
-
-			sonnetry.apply(argv.skipInit, argv.autoApprove, argv.reconfigure);
+			await sonnetry.apply(argv.skipInit, argv.autoApprove, argv.reconfigure);
 		})
 		.command("destroy <filename>", "Destroys all resources in a given configuration", (yargs) => {
 			return yargs.positional('filename', {
@@ -57,8 +56,7 @@ const sonnetry = new Sonnet({
 		}, async (argv) => {
 
 			await renderWrite(sonnetry, argv);
-
-			sonnetry.destroy(argv.skipInit, argv.autoApprove);
+			await sonnetry.destroy(argv.skipInit, argv.autoApprove);
 
 		})
 		.command("generate <filename>", "Generates files from a configuration", (yargs) => {
@@ -88,7 +86,11 @@ async function renderWrite(sonnetry, argv) {
 
 	sonnetry.renderPath = (!!sonnetry.projectName) ? `./render-${sonnetry.projectName}` : './render';
 
-	console.log(`[*] Writing to ${sonnetry.renderPath}`);
+	if (Object.keys(sonnetry.lastRender).length > 0) {
+		console.log(`[*] Writing to ${sonnetry.renderPath}`);
+	} else {
+		console.log(`[!] Nothing to write.`);
+	}
 
 	sonnetry.write();
 
