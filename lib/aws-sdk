@@ -38,18 +38,14 @@ local sonnetry = import 'sonnetry';
 		) for region in aws.getRegionsList()
 	},
 
-	providerAliases()::
-		local def = sonnetry.envvar('AWS_DEFAULT_REGION');
-		local default = if def != false then def else 'us-east-1';
-
-		[{
-			aws: {
-				alias: region,
-				region: region
-			}
-		} for region in aws.getRegionsList()] + [{
-			aws: {
-				region: default
-			}
-		}]
+	providerAliases(default):: [{
+		aws: {
+			alias: region,
+			region: region
+		}
+	} for region in aws.getRegionsList()] + [{
+		aws: {
+			region: default
+		}
+	}]
 }
