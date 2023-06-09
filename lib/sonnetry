@@ -1,7 +1,6 @@
 {
 	local sonnetry = self,
 
-	autoBootstrap():: std.native("autoBootstrap")(),
 	bootstrap(project):: std.native("bootstrap")(project),
 	envvar(name):: std.native("envvar")(name),
 	remote(project, resource):: std.native("remote")(project, resource),

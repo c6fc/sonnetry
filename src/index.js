@@ -1,5 +1,8 @@
 'use strict';
 
+// Suppress the AWS SDK v2 deprecation message:
+process.env.AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE=1
+
 const terraform = require('@c6fc/terraform');
 
 const fs = require("fs");
@@ -13,7 +16,7 @@ const { spawnSync } = require('child_process');
 const { Jsonnet } = require("@hanazuki/node-jsonnet");
 
 aws.config.update({
-	region: process.env?.AWS_DEFAULT_REGION ?? "us-east-1"
+	region: process.env?.AWS_REGION ?? "us-east-1"
 });
 
 exports.Sonnet = class {
@@ -46,10 +49,6 @@ exports.Sonnet = class {
 
 			return client[method](JSON.parse(params)).promise();
 		}, "clientObj", "method", "params");
-
-		this.addFunction("autoBootstrap", () => {
-			return this.autoBootstrap();
-		});
 
 		this.addFunction("bootstrap", (project) => {
 			return this.bootstrap(project);
@@ -186,42 +185,6 @@ exports.Sonnet = class {
 		return false;
 	}
 
-	async autoBootstrap() {
-
-		const regex = /^\.git$/;
-		let searchPath = process.cwd();
-		let gitPath = [];
-
-		while (gitPath.length == 0 && searchPath != "/") {
-			gitPath = fs.readdirSync(searchPath)
-				.filter(f => fs.existsSync(path.join(searchPath, '.git', 'config')))
-				.map(e => path.join(searchPath, '.git', 'config'));
-
-			searchPath = path.join(searchPath, '..');
-		}
-
-		if (!!!gitPath[0]) {
-			throw new Error(`[!] Failed to autoBootstrap. Unable to find .git/config in any current or parent path.`);
-		}
-
-		const gitConfig = ini.parse(fs.readFileSync(gitPath[0], 'utf-8'));
-
-		const remotes = Object.keys(gitConfig)
-			.filter(k => k.indexOf('remote') === 0);
-
-		if (!!!remotes[0]) {
-			throw new Error(`[!] Failed to autoBootstrap. No 'remote' found in gitconfig`);
-		}
-
-		const project = gitConfig[remotes[0]]?.url?.split(':')?.[1]?.split('.git')?.[0];
-
-		if (!!!project) {
-			throw new Error(`[!] Failed to autoBootstrap. Unable to derive project from ${remotes[0].url}`);
-		}
-
-		return this.bootstrap(project.replaceAll('/', '_'));
-	}
-
 	async bootstrap(project) {
 		const s3 = new aws.S3();
 		const self = this;
@@ -341,7 +304,7 @@ exports.Sonnet = class {
 		});
 
 		if (destroy.status != 0) {
-			console.log(`[!] Terraform destroy failed with status code ${init.status}`);
+			console.log(`[!] Terraform destroy failed with status code ${destroy.status}`);
 			process.exit(destroy.status);
 		}
 
@@ -357,6 +320,13 @@ exports.Sonnet = class {
 		return this;
 	}
 
+	exportCredentials() {
+		console.log(`export AWS_PROFILE=${process.env.AWS_PROFILE}`);
+		console.log(`export AWS_ACCESS_KEY_ID=${process.env.AWS_ACCESS_KEY_ID}`);
+		console.log(`export AWS_SECRET_ACCESS_KEY=${process.env.AWS_SECRET_ACCESS_KEY}`);
+		console.log(`export AWS_SESSION_TOKEN=${process.env.AWS_SESSION_TOKEN}`);
+	}
+
 	import(path) {
 		this.jsonnet = this.jsonnet.addJpath(path);
 
@@ -366,7 +336,7 @@ exports.Sonnet = class {
 	async init(args = []) {
 		await terraform.isReady;
 
-		const init = spawnSync(this.terraformBinPath, ['init'].concat(args), {
+		const init = spawnSync(this.terraformBinPath, ['init', '-upgrade'].concat(args), {
 			cwd: this.renderPath,
 			stdio: [process.stdin, process.stdout, process.stderr]
 		});
@@ -431,7 +401,7 @@ exports.Sonnet = class {
 		const packagePath = path.join(this.activePath, 'sonnetry_modules', 'packages.json');
 
 		if (!fs.existsSync(packagePath)) {
-			console.log(`[-] No sonnetry_modules/packages.json file found. Skipping package-based module import.`);
+			// console.log(`[-] No sonnetry_modules/packages.json file found. Skipping package-based module import.`);
 			return [];
 		}
 
@@ -641,7 +611,7 @@ async function setAwsCredentials() {
 
 	if (!profile) {
 
-		const caller = await verifyCredentials();
+		let caller = await verifyCredentials();
 		if (!!caller) {
 
 			if (!!process.env.SONNETRY_ASSUMEROLE) {
@@ -836,7 +806,7 @@ async function processRoleChain() {
 				throw new Error("AWS assumerole credential verification error");
 			}
 
-			console.log(`[+] Successfully assumed role [${creds.role_arn}]`);
+			console.log(`[+] Successfully assumed role [${process.env.SONNETRY_ASSUMEROLE}]`);
 
 			fs.writeFileSync(cacheFile, JSON.stringify({
 				accessKeyId: aws.config.credentials.accessKeyId,
