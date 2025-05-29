@@ -1,14 +1,15 @@
 {
   "dependencies": {
-    "@c6fc/terraform": "^0.0.5",
+    "@c6fc/terraform": "^0.0.6",
     "@hanazuki/node-jsonnet": "^0.4.2",
     "aws-sdk": "^2.1032.0",
+    "axios": "^1.9.0",
     "ini": "^2.0.0",
     "yargs": "^17.2.1"
   },
   "name": "@c6fc/sonnetry",
   "description": "AWS + Terraform + Jsonnet in perfect harmony.",
-  "version": "3.1.4",
+  "version": "3.1.5",
   "main": "src/index.js",
   "directories": {
     "lib": "lib"
